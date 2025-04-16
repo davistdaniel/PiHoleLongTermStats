@@ -1,3 +1,7 @@
+## Author :  Davis T. Daniel
+## PiHoleLongTermStats v.0.9
+## License :  MIT
+
 import pandas as pd
 import sqlite3
 import argparse
