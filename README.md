@@ -39,13 +39,13 @@ A dashboard built with **Dash** and **Plotly** to explore long-term DNS query da
 - Make a copy/backup of your pihole-FTL.db (**Important!**). Don't use your actual Pi-hole FTL db file for querying.
 
     ```bash
-    sudo cp /etc/pihole/pihole-FTL.db $HOME/PiHoleLongTermStats/``
+    sudo cp /etc/pihole/pihole-FTL.db $HOME/PiHoleLongTermStats/
     ```
 
 - Change the ownership of the copied/backup database file to your user account:
 
     ```bash
-    sudo chown $USER:$USER $HOME/PiHoleLongTermStats/pihole-FTL.db``
+    sudo chown $USER:$USER $HOME/PiHoleLongTermStats/pihole-FTL.db
     ```
 - Run app.py. 
 
