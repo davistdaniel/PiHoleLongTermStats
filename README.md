@@ -1,7 +1,6 @@
 # Pi Hole Long Term Statistics
 
-A dashboard built with **Dash** and **Plotly** to explore long-term DNS query data from a **Pi-hole v.6** instance.  
-Visualize allowed vs blocked domains, top clients, and query trends over time.
+A dashboard built with **Dash** and **Plotly** to explore long-term DNS query data from a **Pi-hole v.6** FTL database file. Visualize allowed vs blocked domains, top clients, and query trends over time.
 
 <p align="center">
 <img src="assets/screenshot.png" alt="Dashboard Screenshot" width="500"/>
@@ -16,9 +15,9 @@ Visualize allowed vs blocked domains, top clients, and query trends over time.
 
 ## 📦 Dependencies
 
-- **Python 3**
-- **Pi-hole** (> v.6)
-- **Python packages**:  
+- Python 3
+- Pi-hole (> v.6) FTL database file (pihole-FTL.db)
+- Python packages:  
   - `dash`  
   - `plotly`  
   - `pandas`

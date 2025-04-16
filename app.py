@@ -35,7 +35,7 @@ def read_pihole_ftl_db(db_path="pihole-FTL.db", days=365):
     # get user-requested number of days from today
     end_date = datetime.now()
     start_date = end_date - timedelta(days=days)
-    start_timestamp = int(start_date.timestamp()) 
+    start_timestamp = int(start_date.timestamp())
 
     # select all queries for the time frame which is requested
     query = f"""
