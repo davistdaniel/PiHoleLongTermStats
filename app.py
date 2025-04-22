@@ -1,5 +1,5 @@
 ## Author :  Davis T. Daniel
-## PiHoleLongTermStats v.0.9
+## PiHoleLongTermStats v.1.0
 ## License :  MIT
 
 import pandas as pd
@@ -8,6 +8,9 @@ import argparse
 import plotly.express as px
 from dash import Dash, dcc, html, Input, Output
 from datetime import datetime, timedelta
+from pathlib import Path
+
+####### command line options #######
 
 # initialize the parser for cli arguments
 parser = argparse.ArgumentParser(
@@ -28,13 +31,19 @@ parser.add_argument(
 args = parser.parse_args()
 
 
+####### reading the database #######
 def read_pihole_ftl_db(db_path="pihole-FTL.db", days=365):
     """
     Reads in the pihole-FTL.db into a pandas dataframe.
     """
 
-    # databased connection
-    conn = sqlite3.connect(db_path)
+    # connect to the database
+    if Path(db_path).is_file():
+        conn = sqlite3.connect(db_path)
+    else:
+        raise FileNotFoundError(
+            f"Database file {db_path} not found. Please provide a valid path."
+        )
 
     # get user-requested number of days from today
     end_date = datetime.now()
@@ -57,6 +66,8 @@ def read_pihole_ftl_db(db_path="pihole-FTL.db", days=365):
     return df
 
 
+####### data collection for cards and plots #######
+
 # read pihole ftl db
 df = read_pihole_ftl_db(db_path=args.db_path, days=args.days)
 
@@ -64,6 +75,7 @@ df = read_pihole_ftl_db(db_path=args.db_path, days=args.days)
 df["timestamp"] = pd.to_datetime(df["timestamp"], unit="s")
 df["date"] = df["timestamp"].dt.date
 df["hour"] = df["timestamp"].dt.hour
+df["day_period"] = df["hour"].apply(lambda h: "Day" if 6 <= h < 24 else "Night")
 
 # status ids for pihole ftl db, see pi-hole FTL docs
 allowed_statuses = [2, 3, 12, 13, 14, 17]
@@ -74,12 +86,38 @@ df["status_type"] = df["status"].apply(
     else ("Blocked" if x in blocked_statuses else "Other")
 )
 
-# calculate query related plot data
+# plot data for top clients plot
+top_clients_stacked = (
+    df[df["client"].notna()]
+    .groupby(["client", "status_type"])
+    .size()
+    .reset_index(name="count")
+)
+
+# plot data for top allowed and blocked domains plot
+blocked_df = (
+    df[df["status_type"] == "Blocked"]["domain"]
+    .value_counts()
+    .nlargest(10)
+    .reset_index()
+    .rename(columns={"index": "Count", "domain": "Domain"})
+)
+
+allowed_df = (
+    df[df["status_type"] == "Allowed"]["domain"]
+    .value_counts()
+    .nlargest(10)
+    .reset_index()
+    .rename(columns={"index": "Count", "domain": "Domain"})
+)
+
+# data related to info cards
 total_queries = len(df)
 blocked_count = len(df[df["status_type"] == "Blocked"])
 allowed_count = len(df[df["status_type"] == "Allowed"])
 blocked_pct = (blocked_count / total_queries) * 100
 allowed_pct = (allowed_count / total_queries) * 100
+## top allowed and blocked domain card
 top_client = df["client"].value_counts().idxmax()
 top_allowed_domain = (
     df[df["status_type"] == "Allowed"]["domain"].value_counts().idxmax()
@@ -87,14 +125,159 @@ top_allowed_domain = (
 top_blocked_domain = (
     df[df["status_type"] == "Blocked"]["domain"].value_counts().idxmax()
 )
-top_clients_stacked = (
-    df[df["client"].notna()]
-    .groupby(["client", "status_type"])
+
+# data for most persistent client card
+blocked_df_c = df[df["status_type"] == "Blocked"]
+persistence = (
+    blocked_df_c.groupby(["client", "domain"])
     .size()
     .reset_index(name="count")
+    .sort_values("count", ascending=False)
 )
-top_domains = df["domain"].value_counts().nlargest(10)
-top_clients = df["client"].value_counts().nlargest(10)
+most_persistent_row = persistence.iloc[0]
+most_persistent_client = most_persistent_row["client"]
+blocked_domain = most_persistent_row["domain"]
+repeat_attempts = most_persistent_row["count"]
+
+
+# data for day and night stats cards
+def get_day_night_top_stats(period_df):
+    return {
+        "top_client": period_df["client"].value_counts().idxmax(),
+        "total_queries": len(period_df),
+        "top_allowed_client": period_df[period_df["status_type"] == "Allowed"]["client"]
+        .value_counts()
+        .idxmax(),
+        "top_allowed_domain": period_df[period_df["status_type"] == "Allowed"]["domain"]
+        .value_counts()
+        .idxmax(),
+        "top_blocked_client": period_df[period_df["status_type"] == "Blocked"]["client"]
+        .value_counts()
+        .idxmax(),
+        "top_blocked_domain": period_df[period_df["status_type"] == "Blocked"]["domain"]
+        .value_counts()
+        .idxmax(),
+    }
+
+
+day_df = df[df["day_period"] == "Day"]
+night_df = df[df["day_period"] == "Night"]
+day_stats = get_day_night_top_stats(day_df)
+night_stats = get_day_night_top_stats(night_df)
+
+# data for date with most activity and least acitivity
+query_date_counts = df.groupby("date")["domain"].count()
+blocked_date_counts = (
+    df[df["status_type"] == "Blocked"].groupby("date")["domain"].count()
+)
+allowed_date_counts = (
+    df[df["status_type"] == "Allowed"].groupby("date")["domain"].count()
+)
+date_most_queries = query_date_counts.idxmax().strftime("%d %B %Y")
+date_most_blocked = blocked_date_counts.idxmax().strftime("%d %B %Y")
+date_most_allowed = allowed_date_counts.idxmax().strftime("%d %B %Y")
+
+date_least_queries = query_date_counts.idxmin().strftime("%d %B %Y")
+date_least_blocked = blocked_date_counts.idxmin().strftime("%d %B %Y")
+date_least_allowed = allowed_date_counts.idxmin().strftime("%d %B %Y")
+
+# data for most active hour and least active hour
+hourly_avg = df.groupby("hour").size().mean()
+hourly_counts = df.groupby("hour").size()
+most_active_hour = hourly_counts.idxmax()
+least_active_hour = hourly_counts.idxmin()
+avg_queries_most = hourly_counts.max()
+avg_queries_least = hourly_counts.min()
+
+# data for most active day and least active day
+df["day_name"] = df["timestamp"].dt.day_name()
+df["date"] = df["timestamp"].dt.date  # already present, but just in case
+daily_counts = df.groupby(["date", "day_name"]).size().reset_index(name="query_count")
+avg = (
+    daily_counts.groupby("day_name")["query_count"].mean().sort_values(ascending=False)
+)
+most_active_day = avg.idxmax()
+most_active_avg = int(avg.max())
+least_active_day = avg.idxmin()
+least_active_avg = int(avg.min())
+
+# data for longest blocking streak
+df_sorted = df.sort_values("timestamp").copy()
+df_sorted["is_blocked"] = df_sorted["status_type"] == "Blocked"
+df_sorted["is_allowed"] = df_sorted["status_type"] == "Allowed"
+df_sorted["blocked_group"] = (
+    df_sorted["is_blocked"] != df_sorted["is_blocked"].shift()
+).cumsum()
+df_sorted["allowed_group"] = (
+    df_sorted["is_allowed"] != df_sorted["is_allowed"].shift()
+).cumsum()
+blocked_groups = df_sorted[df_sorted["is_blocked"]].groupby("blocked_group")
+allowed_groups = df_sorted[df_sorted["is_allowed"]].groupby("allowed_group")
+streaks_blocked = blocked_groups.agg(
+    streak_length=("is_blocked", "size"), start_time=("timestamp", "first")
+)
+streaks_allowed = allowed_groups.agg(
+    streak_length=("is_allowed", "size"), start_time=("timestamp", "first")
+)
+longest_streak_blocked = streaks_blocked.loc[streaks_blocked["streak_length"].idxmax()]
+longest_streak_length_blocked = longest_streak_blocked["streak_length"]
+streak_start_time_blocked = longest_streak_blocked["start_time"]
+streak_date_blocked = streak_start_time_blocked.strftime("%d %B %Y")
+streak_hour_blocked = streak_start_time_blocked.strftime("%H:%M")
+
+longest_streak_allowed = streaks_allowed.loc[streaks_allowed["streak_length"].idxmax()]
+longest_streak_length_allowed = longest_streak_allowed["streak_length"]
+streak_start_time_allowed = longest_streak_allowed["start_time"]
+streak_date_allowed = streak_start_time_allowed.strftime("%d %B %Y")
+streak_hour_allowed = streak_start_time_allowed.strftime("%H:%M")
+
+# data for longest idle gap
+df_sorted["idle_gap"] = df_sorted["timestamp"].diff().dt.total_seconds()
+max_idle_ms = df_sorted["idle_gap"].max()
+max_idle_idx = df_sorted["idle_gap"].idxmax()
+
+# data for average time between blocked and allowed queries
+blocked = df_sorted[df_sorted["status_type"] == "Blocked"]
+blocked_times = blocked["timestamp"].diff().dt.total_seconds().dropna()
+avg_time_between_blocked = blocked_times.mean() if not blocked_times.empty else None
+
+allowed = df_sorted[df_sorted["status_type"] == "Allowed"]
+allowed_times = allowed["timestamp"].diff().dt.total_seconds().dropna()
+avg_time_between_allowed = allowed_times.mean() if not allowed_times.empty else None
+
+before_gap = (
+    df_sorted.loc[max_idle_idx - 1, "timestamp"].strftime("%d-%b %Y %H:%M:%S.%f")[:-4]
+    if max_idle_idx > 0
+    else None
+)
+after_gap = df_sorted.loc[max_idle_idx, "timestamp"].strftime("%d-%b %Y %H:%M:%S.%f")[
+    :-4
+]
+
+# data for number of unique clients
+unique_clients = df["client"].nunique()
+
+# data for most diverse client
+diverse_client_df = (
+    df.groupby("client")["domain"].nunique().reset_index(name="unique_domains")
+)
+diverse_client_df = diverse_client_df.sort_values("unique_domains", ascending=False)
+
+most_diverse_client = diverse_client_df.iloc[0]["client"]
+unique_domains_count = diverse_client_df.iloc[0]["unique_domains"]
+
+# data for average reply times (in milliseconds)
+df["reply_time"] = pd.to_numeric(df["reply_time"], errors="coerce")
+avg_reply_time = round(df["reply_time"].dropna().mean() * 1000, 3)
+max_reply_time = round(df["reply_time"].dropna().max() * 1000, 3)
+min_reply_time = round(df["reply_time"].dropna().min() * 1000, 3)
+
+# data for slowest domain reply time (in seconds)
+avg_reply_times = df.groupby("domain")["reply_time"].mean().reset_index()
+slowest_domain_row = avg_reply_times.sort_values("reply_time", ascending=False).iloc[0]
+slowest_domain = slowest_domain_row["domain"]
+slowest_avg_reply_time = slowest_domain_row["reply_time"]
+
 
 # init app
 app = Dash(__name__)
@@ -110,7 +293,7 @@ app.layout = html.Div(
                         html.H3("Allowed Queries"),
                         html.P(f"{allowed_count:,} ({allowed_pct:.1f}%)"),
                         html.P(
-                            f"Top allowed client was '{df[df['status_type'] == 'Allowed']['client'].value_counts().idxmax()}'",
+                            f"Top allowed client was {df[df['status_type'] == 'Allowed']['client'].value_counts().idxmax()}.",
                             style={"fontSize": "14px", "color": "#777"},
                         ),
                     ],
@@ -121,7 +304,7 @@ app.layout = html.Div(
                         html.H3("Blocked Queries"),
                         html.P(f"{blocked_count:,} ({blocked_pct:.1f}%)"),
                         html.P(
-                            f"Top blocked client was '{df[df['status_type'] == 'Blocked']['client'].value_counts().idxmax()}'",
+                            f"Top blocked client was {df[df['status_type'] == 'Blocked']['client'].value_counts().idxmax()}.",
                             style={"fontSize": "14px", "color": "#777"},
                         ),
                     ],
@@ -130,9 +313,19 @@ app.layout = html.Div(
                 html.Div(
                     [
                         html.H3("Top Allowed Domain"),
-                        html.P(top_allowed_domain),
                         html.P(
-                            f"was allowed {df[df['domain'] == top_allowed_domain].shape[0]:,} times",
+                            top_allowed_domain,
+                            title=top_allowed_domain,
+                            style={
+                                "fontSize": "20px",
+                                "whiteSpace": "wrap",
+                                "overflow": "hidden",
+                                "textOverflow": "ellipsis",
+                            },
+                        ),
+                        html.P(
+                            f"""was allowed {df[df["domain"] == top_allowed_domain].shape[0]:,} times. This domain was queried the most by 
+                            {df[(df["status_type"] == "Allowed") & (df["domain"] == top_allowed_domain)]["client"].value_counts().idxmax()}.""",
                             style={"fontSize": "14px", "color": "#777"},
                         ),
                     ],
@@ -141,55 +334,419 @@ app.layout = html.Div(
                 html.Div(
                     [
                         html.H3("Top Blocked Domain"),
-                        html.P(top_blocked_domain),
                         html.P(
-                            f"was blocked {df[df['domain'] == top_blocked_domain].shape[0]:,} times",
+                            top_blocked_domain,
+                            title=top_blocked_domain,
+                            style={
+                                "fontSize": "20px",
+                                "whiteSpace": "wrap",
+                                "overflow": "hidden",
+                                "textOverflow": "ellipsis",
+                            },
+                        ),
+                        html.P(
+                            f"""was blocked {df[df["domain"] == top_blocked_domain].shape[0]:,} times. This domain was queried the most by 
+                            {df[(df["status_type"] == "Blocked") & (df["domain"] == top_blocked_domain)]["client"].value_counts().idxmax()}.""",
                             style={"fontSize": "14px", "color": "#777"},
                         ),
                     ],
                     className="card",
                 ),
-                html.Div(
+                html.Details(
                     [
-                        html.H3("Total Queries"),
-                        html.P(f"{total_queries:,}"),
-                        html.P(
-                            f"Out of which {df['domain'].nunique():,} were unique, most queries came from '{top_client}'",
-                            style={"fontSize": "14px", "color": "#777"},
+                        html.Summary(
+                            "Query Stats",
+                            style={"fontSize": "25px", "cursor": "pointer"},
                         ),
-                    ],
-                    className="card card-wide",
+                        html.Br(),
+                        html.Div(
+                            [
+                                html.H3("Total Unique Clients"),
+                                html.P(f"{unique_clients:,}"),
+                                html.P(
+                                    "Devices that have made at least one query.",
+                                    style={"fontSize": "14px", "color": "#777"},
+                                ),
+                            ],
+                            className="cardquery",
+                        ),
+                        html.Br(),
+                        html.Div(
+                            [
+                                html.H3("Total Queries"),
+                                html.P(f"{total_queries:,}"),
+                                html.P(
+                                    f"Out of which {df['domain'].nunique():,} were unique, most queries came from {top_client}.",
+                                    style={"fontSize": "14px", "color": "#777"},
+                                ),
+                            ],
+                            className="cardquery",
+                        ),
+                        html.Br(),
+                        html.Div(
+                            [
+                                html.H3("Highest number of queries were on"),
+                                html.P(f"{date_most_queries}"),
+                                html.P(
+                                    f"Highest number of allowed queries were on {date_most_allowed}. Highest number of blocked queries were on {date_most_blocked}.",
+                                    style={"fontSize": "14px", "color": "#777"},
+                                ),
+                            ],
+                            className="cardquery",
+                        ),
+                        html.Br(),
+                        html.Div(
+                            [
+                                html.H3("Lowest number of queries were on"),
+                                html.P(f"{date_least_queries}"),
+                                html.P(
+                                    f"Lowest number of allowed queries were on {date_least_allowed}. Lowest number of blocked queries were on {date_least_blocked}.",
+                                    style={"fontSize": "14px", "color": "#777"},
+                                ),
+                            ],
+                            className="cardquery",
+                        ),
+                        html.Br(),
+                        html.Div(
+                            [
+                                html.H3("Average reply time"),
+                                html.P(f"{avg_reply_time} ms"),
+                                html.P(
+                                    f"Longest reply time was {max_reply_time} ms and shortest reply time was {min_reply_time} ms.",
+                                    style={"fontSize": "14px", "color": "#777"},
+                                ),
+                            ],
+                            className="cardquery",
+                        ),
+                    ]
                 ),
+                html.Details(
+                    [
+                        html.Summary(
+                            "Activity Stats",
+                            style={"fontSize": "25px", "cursor": "pointer"},
+                        ),
+                        html.Br(),
+                        html.Div(
+                            [
+                                html.H3("Most Active Hour"),
+                                html.P(
+                                    f"{most_active_hour}:00 - {most_active_hour + 1}:00"
+                                ),
+                                html.P(
+                                    f"On average, {avg_queries_most:,} queries are made during this time.",
+                                    style={"fontSize": "14px", "color": "#777"},
+                                ),
+                            ],
+                            className="cardactivity",
+                        ),
+                        html.Br(),
+                        html.Div(
+                            [
+                                html.H3("Least Active Hour"),
+                                html.P(
+                                    f"{least_active_hour}:00 - {least_active_hour + 1}:00"
+                                ),
+                                html.P(
+                                    f"On average, {avg_queries_least:,} queries are made during this time.",
+                                    style={"fontSize": "14px", "color": "#777"},
+                                ),
+                            ],
+                            className="cardactivity",
+                        ),
+                        html.Br(),
+                        html.Div(
+                            [
+                                html.H3("Most Active Day of the Week"),
+                                html.P(most_active_day),
+                                html.P(
+                                    f"On average, {most_active_avg:,} queries are made on this day.",
+                                    style={"fontSize": "14px", "color": "#777"},
+                                ),
+                            ],
+                            className="cardactivity",
+                        ),
+                        html.Br(),
+                        html.Div(
+                            [
+                                html.H3("Least Active Day of the Week"),
+                                html.P(least_active_day),
+                                html.P(
+                                    f"On average, {least_active_avg:,} queries are made on this day.",
+                                    style={"fontSize": "14px", "color": "#777"},
+                                ),
+                            ],
+                            className="cardactivity",
+                        ),
+                        html.Br(),
+                        html.Div(
+                            [
+                                html.H3("Longest Blocking Streak"),
+                                html.P(f"{longest_streak_length_blocked:,} queries"),
+                                html.P(
+                                    f"on {streak_date_blocked} at {streak_hour_blocked}.",
+                                    style={"fontSize": "14px", "color": "#777"},
+                                ),
+                            ],
+                            className="cardactivity",
+                        ),
+                        html.Br(),
+                        html.Div(
+                            [
+                                html.H3("Longest Allowing Streak"),
+                                html.P(f"{longest_streak_length_allowed:,} queries"),
+                                html.P(
+                                    f"on {streak_date_allowed} at {streak_hour_allowed}.",
+                                    style={"fontSize": "14px", "color": "#777"},
+                                ),
+                            ],
+                            className="cardactivity",
+                        ),
+                    ]
+                ),
+                html.Details(
+                    [
+                        html.Summary(
+                            "Day and Night Stats",
+                            style={"fontSize": "25px", "cursor": "pointer"},
+                        ),
+                        html.Br(),
+                        html.Div(
+                            [
+                                html.H3("Total queries during the day"),
+                                html.P(f"{day_stats['total_queries']:,}"),
+                                html.P(
+                                    f"Most queries were from {day_stats['top_client']}. {day_stats['top_allowed_client']} had the most allowed queries and {day_stats['top_blocked_client']} had the most blocked.",
+                                    style={"fontSize": "14px", "color": "#777"},
+                                ),
+                            ],
+                            className="carddaynight",
+                        ),
+                        html.Br(),
+                        html.Div(
+                            [
+                                html.H3("Total queries during the night"),
+                                html.P(f"{night_stats['total_queries']:,}"),
+                                html.P(
+                                    f"Most queries were from {night_stats['top_client']}. {night_stats['top_allowed_client']} had the most allowed queries and {night_stats['top_blocked_client']} had the most blocked.",
+                                    style={"fontSize": "14px", "color": "#777"},
+                                ),
+                            ],
+                            className="carddaynight",
+                        ),
+                        html.Br(),
+                        html.Div(
+                            [
+                                html.H3("Top allowed domain during the day"),
+                                html.P(
+                                    f"{day_stats['top_allowed_domain']}",
+                                    title=day_stats["top_allowed_domain"],
+                                    style={
+                                        "fontSize": "18px",
+                                        "whiteSpace": "wrap",
+                                        "overflow": "hidden",
+                                        "textOverflow": "ellipsis",
+                                    },
+                                ),
+                                html.P(
+                                    f"""was allowed {day_df[day_df["domain"] == day_stats["top_allowed_domain"]].shape[0]:,} times. This domain was queried the most by 
+                            {day_df[(day_df["status_type"] == "Allowed") & (day_df["domain"] == day_stats["top_allowed_domain"])]["client"].value_counts().idxmax()}.""",
+                                    style={"fontSize": "14px", "color": "#777"},
+                                ),
+                            ],
+                            className="carddaynight",
+                        ),
+                        html.Br(),
+                        html.Div(
+                            [
+                                html.H3("Top blocked domain during the day"),
+                                html.P(
+                                    f"{day_stats['top_blocked_domain']}",
+                                    title=day_stats["top_blocked_domain"],
+                                    style={
+                                        "fontSize": "18px",
+                                        "whiteSpace": "wrap",
+                                        "overflow": "hidden",
+                                        "textOverflow": "ellipsis",
+                                    },
+                                ),
+                                html.P(
+                                    f"""was blocked {day_df[day_df["domain"] == day_stats["top_blocked_domain"]].shape[0]:,} times. This domain was queried the most by 
+                            {day_df[(day_df["status_type"] == "Blocked") & (day_df["domain"] == day_stats["top_blocked_domain"])]["client"].value_counts().idxmax()}.""",
+                                    style={"fontSize": "14px", "color": "#777"},
+                                ),
+                            ],
+                            className="carddaynight",
+                        ),
+                        html.Br(),
+                        html.Div(
+                            [
+                                html.H3("Top allowed domain during the night"),
+                                html.P(
+                                    f"{night_stats['top_allowed_domain']}",
+                                    title=night_stats["top_allowed_domain"],
+                                    style={
+                                        "fontSize": "18px",
+                                        "whiteSpace": "wrap",
+                                        "overflow": "hidden",
+                                        "textOverflow": "ellipsis",
+                                    },
+                                ),
+                                html.P(
+                                    f"""was allowed {night_df[night_df["domain"] == night_stats["top_allowed_domain"]].shape[0]:,} times. This domain was queried the most by 
+                            {night_df[(night_df["status_type"] == "Allowed") & (night_df["domain"] == night_stats["top_allowed_domain"])]["client"].value_counts().idxmax()}.""",
+                                    style={"fontSize": "14px", "color": "#777"},
+                                ),
+                            ],
+                            className="carddaynight",
+                        ),
+                        html.Br(),
+                        html.Div(
+                            [
+                                html.H3("Top blocked domain during the night"),
+                                html.P(
+                                    f"{night_stats['top_blocked_domain']}",
+                                    title=night_stats["top_blocked_domain"],
+                                    style={
+                                        "fontSize": "18px",
+                                        "whiteSpace": "wrap",
+                                        "overflow": "hidden",
+                                        "textOverflow": "ellipsis",
+                                    },
+                                ),
+                                html.P(
+                                    f"""was blocked {night_df[night_df["domain"] == night_stats["top_blocked_domain"]].shape[0]:,} times. This domain was queried the most by 
+                            {night_df[(night_df["status_type"] == "Blocked") & (night_df["domain"] == night_stats["top_blocked_domain"])]["client"].value_counts().idxmax()}.""",
+                                    style={"fontSize": "14px", "color": "#777"},
+                                ),
+                            ],
+                            className="carddaynight",
+                        ),
+                    ]
+                ),
+                html.Details(
+                    [
+                        html.Summary(
+                            "Other Stats",
+                            style={"fontSize": "25px", "cursor": "pointer"},
+                        ),
+                        html.Br(),
+                        html.Div(
+                            [
+                                html.H3("Most Persistent Client"),
+                                html.P(f"{most_persistent_client}"),
+                                html.P(
+                                    f"Tried accessing '{blocked_domain}' {repeat_attempts} times despite being blocked.",
+                                    style={"fontSize": "14px", "color": "#777"},
+                                ),
+                            ],
+                            className="cardother",
+                        ),
+                        html.Br(),
+                        html.Div(
+                            [
+                                html.H3("Most Diverse Client"),
+                                html.P(f"{most_diverse_client}"),
+                                html.P(
+                                    f"Queried {unique_domains_count:,} unique domains.",
+                                    style={"fontSize": "14px", "color": "#777"},
+                                ),
+                            ],
+                            className="cardother",
+                        ),
+                        html.Br(),
+                        html.Div(
+                            [
+                                html.H3("Longest Idle Period"),
+                                html.P(f"{max_idle_ms:,.0f} s"),
+                                html.P(
+                                    f"Between {before_gap} and {after_gap}",
+                                    style={"fontSize": "14px", "color": "#777"},
+                                ),
+                            ],
+                            className="cardother",
+                        ),
+                        html.Br(),
+                        html.Div(
+                            [
+                                html.H3("Slowest Responding Domain"),
+                                html.P(
+                                    f"{slowest_domain}",
+                                    title=slowest_domain,
+                                    style={
+                                        "fontSize": "18px",
+                                        "whiteSpace": "wrap",
+                                        "overflow": "hidden",
+                                        "textOverflow": "ellipsis",
+                                    },
+                                ),
+                                html.P(
+                                    f"Avg reply time: {slowest_avg_reply_time * 1000:.2f} ms",
+                                    style={"fontSize": "14px", "color": "#777"},
+                                ),
+                            ],
+                            className="cardother",
+                        ),
+                        html.Br(),
+                        html.Div(
+                            [
+                                html.H3("Average Time Between Blocked Queries"),
+                                html.P(
+                                    f"{avg_time_between_blocked:.2f} s"
+                                    if avg_time_between_blocked
+                                    else "N/A"
+                                ),
+                                html.P(
+                                    "Average interval between blocked queries.",
+                                    style={"fontSize": "14px", "color": "#777"},
+                                ),
+                            ],
+                            className="cardother",
+                        ),
+                        html.Br(),
+                        html.Div(
+                            [
+                                html.H3("Average Time Between Allowed Queries"),
+                                html.P(
+                                    f"{avg_time_between_allowed:.2f} s"
+                                    if avg_time_between_allowed
+                                    else "N/A"
+                                ),
+                                html.P(
+                                    "Average interval between successful queries.",
+                                    style={"fontSize": "14px", "color": "#777"},
+                                ),
+                            ],
+                            className="cardother",
+                        ),
+                    ]
+                ),
+                html.Br(),
             ],
             className="kpi-container",
         ),
         html.Br(),
         # time series
+        html.H2("Queries over time"),
         html.Div(
             [
-                html.Div(
-                    [
-                        html.H2("Queries Over Time"),
-                        dcc.Graph(
-                            id="time-series",
-                            figure=px.histogram(
-                                df,
-                                x="timestamp",
-                                color="status_type",
-                                barmode="stack",
-                                nbins=100,
-                                title="Queries Over Time",
-                                color_discrete_map={
-                                    "Allowed": "#10b981",
-                                    "Blocked": "#ef4444",
-                                },
-                                template="simple_white",
-                            ),
-                        ),
+                dcc.Dropdown(
+                    options=[{"label": c, "value": c} for c in df["client"].unique()],
+                    id="client-filter",
+                    placeholder="Select a Client",
+                ),
+                dcc.Dropdown(
+                    options=[
+                        {"label": "Hours", "value": "h"},
+                        {"label": "Months", "value": "ME"},
+                        {"label": "Years", "value": "YE"},
                     ],
-                    className="cardplot",
-                )
-            ]
+                    id="freq-filter",
+                    placeholder="Frequency",
+                ),
+                dcc.Graph(id="filtered-view"),
+            ],
+            className="cardplot",
         ),
         html.Br(),
         html.Div(
@@ -200,14 +757,16 @@ app.layout = html.Div(
                         dcc.Graph(
                             id="top-blocked-domains",
                             figure=px.bar(
-                                df[df["status_type"] == "Blocked"]["domain"]
-                                .value_counts()
-                                .nlargest(10),
-                                labels={"x": "Domain", "y": "Count"},
-                                title="Top Blocked Domains",
-                                template="simple_white",
+                                blocked_df,
+                                x="Domain",
+                                y="count",
+                                labels={
+                                    "Domain": "Domain",
+                                    "count": "Count",
+                                },
+                                template="plotly_white",
                                 color_discrete_sequence=["#ef4444"],
-                            ),
+                            ).update_layout(showlegend=False),
                         ),
                     ],
                     className="cardplot",
@@ -218,14 +777,16 @@ app.layout = html.Div(
                         dcc.Graph(
                             id="top-allowed-domains",
                             figure=px.bar(
-                                df[df["status_type"] == "Allowed"]["domain"]
-                                .value_counts()
-                                .nlargest(10),
-                                labels={"x": "Domain", "y": "Count"},
-                                title="Top Allowed Domains",
-                                template="simple_white",
+                                allowed_df,
+                                x="Domain",
+                                y="count",
+                                labels={
+                                    "Domain": "Domain",
+                                    "count": "Count",
+                                },
+                                template="plotly_white",
                                 color_discrete_sequence=["#10b981"],
-                            ),
+                            ).update_layout(showlegend=False),
                         ),
                     ],
                     className="cardplot",
@@ -234,6 +795,7 @@ app.layout = html.Div(
             className="row",
         ),
         html.Br(),
+        html.H2("Top Client Activity"),
         html.Div(
             [
                 dcc.Graph(
@@ -242,44 +804,77 @@ app.layout = html.Div(
                         top_clients_stacked,
                         x="client",
                         y="count",
+                        labels={
+                            "client": "Client",
+                            "count": "Count",
+                            "status_type": "Query status",
+                        },
                         color="status_type",
                         barmode="stack",
                         title="Top Clients by Query Type",
-                        color_discrete_map={"Allowed": "#10b981", "Blocked": "#ef4444"},
-                        template="simple_white",
+                        color_discrete_map={
+                            "Allowed": "#10b981",
+                            "Blocked": "#ef4444",
+                            "Other": "#b99529",
+                        },
+                        template="plotly_white",
                     ),
                 ),
             ],
             className="cardplot",
         ),
         html.Br(),
-        html.H2("Filtered Query Viewer"),
         html.Div(
             [
-                dcc.Dropdown(
-                    options=[{"label": c, "value": c} for c in df["client"].unique()],
-                    id="client-filter",
-                    placeholder="Select a Client",
-                ),
-                dcc.Graph(id="filtered-view"),
-            ],
-            className="cardplot",
+                html.Div(
+                    [
+                        html.H2("Average Reply Time per Day"),
+                        dcc.Graph(
+                            id="avg-reply-time",
+                            figure=px.line(
+                                df.groupby("date")["reply_time"]
+                                .mean()
+                                .mul(1000)
+                                .reset_index(name="reply_time_ms"),
+                                x="date",
+                                y="reply_time_ms",
+                                labels={
+                                    "reply_time_ms": "Average Reply Time (ms)",
+                                    "date": "Date",
+                                },
+                                markers=True,
+                                color_discrete_sequence=["#3b82f6"],
+                                template="plotly_white",
+                            ),
+                        ),
+                    ],
+                    className="cardplot",
+                )
+            ]
         ),
+        html.Br(),
     ],
     className="container",
 )
 
 
 # callback
-@app.callback(Output("filtered-view", "figure"), Input("client-filter", "value"))
-def update_filtered_view(client):
+@app.callback(
+    Output("filtered-view", "figure"),
+    Input("client-filter", "value"),
+    Input("freq-filter", "value"),
+)
+def update_filtered_view(client, freq):
     if not client:
         dff = df
     else:
         dff = df[df["client"] == client]
-
+    if freq:
+        freq = freq
+    else:
+        freq = "h"
     dff_grouped = (
-        dff.groupby([pd.Grouper(key="timestamp", freq="h"), "status_type"])
+        dff.groupby([pd.Grouper(key="timestamp", freq=freq), "status_type"])
         .size()
         .reset_index(name="count")
     )
@@ -291,12 +886,17 @@ def update_filtered_view(client):
         color="status_type",
         barmode="stack",
         title=f"DNS Queries Over Time for {client or 'All Clients'}",
-        color_discrete_map={"Allowed": "#10b981", "Blocked": "#ef4444"},
-        template="simple_white",
+        color_discrete_map={
+            "Allowed": "#10b981",
+            "Blocked": "#ef4444",
+            "Other": "#b99529",
+        },
+        template="plotly_white",
+        labels={"timestamp": "Date", "count": "Count", "status_type": "Query Status"},
     )
     return fig
 
 
-# serve the app on requested port
+# serve the app on user-requested port
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=args.port, debug=True)

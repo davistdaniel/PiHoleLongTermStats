@@ -2,12 +2,19 @@
 
 A dashboard built with **Dash** and **Plotly** to explore long-term DNS query data from a **Pi-hole v.6** FTL database file. Visualize allowed vs blocked domains, top clients, and query trends over time.
 
-<p align="center">
-<img src="assets/screenshot.png" alt="Dashboard Screenshot" width="500"/>
-</p>
+<center>
+<img src="assets/screenshot.gif" alt="Dashboard Screenshot 1" width="600">
+
+<details>
+<summary>More screenshots</summary>
+<img src="assets/screenshot2.png" alt="Dashboard Screenshot 2" width="600"/>
+</details>
+</center>
+
+
 
 ## 🧰 Features
-
+- 🗂️ Info cards : Query stats, Activity stats, Day and Night stats
 - 📈 Interactive charts for query trends and client behavior  
 - 🔍 Filter queries by client  
 - 🌐 View top blocked/allowed domains  

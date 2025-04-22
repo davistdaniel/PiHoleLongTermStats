@@ -12,70 +12,59 @@ h1, h2, h3 {
 
 .container {
     padding: 20px;
-    max-width: 1200px;
+    max-width: 1400px;
     margin: auto;
 }
 
 .kpi-container {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
-    gap: 15px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
 }
 
 .card {
-    flex: 1 1 30%;
     background: linear-gradient(135deg, #ffffff, #f0f0f5);
     border-radius: 15px;
     box-shadow: 0 4px 10px rgba(0,0,0,0.06);
     padding: 20px;
     transition: transform 0.2s ease-in-out;
+    border-left: 5px solid #06816b;
 }
 
 .card:hover {
     transform: translateY(-5px);
 }
 
-.card:nth-child(1) {
-    background: #f5fff7;
-    border-left: 5px solid #27ae60;
-}
-
-.card:nth-child(2) {
-    background: #ffe8e8;
-    border-left: 5px solid #e74c3c;
-}
-
+.card:nth-child(1),
 .card:nth-child(3) {
-    background: #e1e2ff;
-    border-left: 5px solid #34495e;
+    background: #f5fff7;
+    border-left-color: #27ae60;
 }
 
+.card:nth-child(2),
 .card:nth-child(4) {
-    background: #f6e2c7;
-    border-left: 5px solid #f39c12;
-}
-
-.card:nth-child(5) {
-    background: #e5f4ff;
-    border-left: 5px solid #2980b9;
-}
-
-.card:nth-child(6) {
-    background: #f9eaff;
-    border-left: 5px solid #8e44ad;
+    background: #ffe8e8;
+    border-left-color: #e74c3c;
 }
 
 .card h3 {
     margin-top: 0;
     font-size: 18px;
-    color: #555;
+    color: #555555;
 }
 
 .card p {
     font-size: 24px;
     font-weight: bold;
     margin: 10px 0 0;
+}
+
+.card p:nth-of-type(2),
+.card p:last-of-type {
+    font-size: 14px;
+    font-weight: normal;
+    color: #777777;
+    margin-top: 5px;
 }
 
 .row {
@@ -97,3 +86,128 @@ h1, h2, h3 {
     padding: 20px;
     transition: transform 0.2s ease-in-out;
 }
+
+.cardactivity {
+    background: linear-gradient(135deg, #ffffff, #f5f5f0);
+    border-radius: 15px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.06);
+    padding: 20px;
+    transition: transform 0.2s ease-in-out;
+    border-left: 5px solid #e7f122;
+}
+
+.cardactivity h3 {
+    margin-top: 0;
+    font-size: 18px;
+    color: #555555;
+}
+
+.cardactivity p {
+    font-size: 24px;
+    font-weight: bold;
+    margin: 10px 0 0;
+}
+
+.cardactivity p:last-of-type {
+    font-size: 14px;
+    font-weight: normal;
+    color: #777777;
+    margin-top: 5px;
+}
+.cardactivity:hover {
+    transform: translateY(-5px);
+}
+
+.cardquery {
+    background: linear-gradient(135deg, #ffffff, #f4f0f5);
+    border-radius: 15px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.06);
+    padding: 20px;
+    transition: transform 0.2s ease-in-out;
+    border-left: 5px solid #7c22f1;
+}
+
+.cardquery h3 {
+    margin-top: 0;
+    font-size: 18px;
+    color: #555555;
+}
+
+.cardquery p {
+    font-size: 24px;
+    font-weight: bold;
+    margin: 10px 0 0;
+}
+
+.cardquery p:last-of-type {
+    font-size: 14px;
+    font-weight: normal;
+    color: #777777;
+    margin-top: 5px;
+}
+.cardquery:hover {
+    transform: translateY(-5px);
+}
+
+.carddaynight {
+    background: linear-gradient(135deg, #ffffff, #f5f0f5);
+    border-radius: 15px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.06);
+    padding: 20px;
+    transition: transform 0.2s ease-in-out;
+    border-left: 5px solid #f122e3;
+}
+
+.carddaynight h3 {
+    margin-top: 0;
+    font-size: 18px;
+    color: #555555;
+}
+
+.carddaynight p {
+    font-size: 24px;
+    font-weight: bold;
+    margin: 10px 0 0;
+}
+
+.carddaynight p:last-of-type {
+    font-size: 14px;
+    font-weight: normal;
+    color: #777777;
+    margin-top: 5px;
+}
+.carddaynight:hover {
+    transform: translateY(-5px);
+}
+
+.cardother {
+    background: linear-gradient(135deg, #ffffff, #f7f1ec);
+    border-radius: 15px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.06);
+    padding: 20px;
+    transition: transform 0.2s ease-in-out;
+    border-left: 5px solid #f16722;
+}
+
+.cardother h3 {
+    margin-top: 0;
+    font-size: 18px;
+    color: #555555;
+}
+
+.cardother p {
+    font-size: 24px;
+    font-weight: bold;
+    margin: 10px 0 0;
+}
+
+.cardother p:last-of-type {
+    font-size: 14px;
+    font-weight: normal;
+    color: #777777;
+    margin-top: 5px;
+}
+.cardother:hover {
+    transform: translateY(-5px);
+}
+
