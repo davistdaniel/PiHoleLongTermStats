@@ -9,6 +9,8 @@ import plotly.express as px
 from dash import Dash, dcc, html, Input, Output
 from datetime import datetime, timedelta
 from pathlib import Path
+import itertools
+
 
 ####### command line options #######
 
@@ -76,6 +78,10 @@ df["timestamp"] = pd.to_datetime(df["timestamp"], unit="s")
 df["date"] = df["timestamp"].dt.date
 df["hour"] = df["timestamp"].dt.hour
 df["day_period"] = df["hour"].apply(lambda h: "Day" if 6 <= h < 24 else "Night")
+latest_data_point = f"until {df['timestamp'].iloc[-1].strftime('%-d-%-m-%Y, %H:%M:%S')}"
+min_date = df["timestamp"].min()
+max_date = df["timestamp"].max()
+data_span_days = (max_date - min_date).days
 
 # status ids for pihole ftl db, see pi-hole FTL docs
 allowed_statuses = [2, 3, 12, 13, 14, 17]
@@ -285,6 +291,10 @@ app.title = "PiHole Long Term Statistics"
 app.layout = html.Div(
     [
         html.H1("PiHole Long Term Statistics", style={"textAlign": "center"}),
+        html.H4(
+            f"{latest_data_point}. Data is available for {data_span_days} days.",
+            style={"textAlign": "center"},
+        ),
         # info cards
         html.Div(
             [
@@ -738,13 +748,23 @@ app.layout = html.Div(
                 dcc.Dropdown(
                     options=[
                         {"label": "Hours", "value": "h"},
-                        {"label": "Months", "value": "ME"},
-                        {"label": "Years", "value": "YE"},
+                        {
+                            "label": "Months",
+                            "value": "ME",
+                            "disabled": data_span_days < 31,
+                        },
+                        {
+                            "label": "Years",
+                            "value": "YE",
+                            "disabled": data_span_days < 365,
+                        },
                     ],
                     id="freq-filter",
                     placeholder="Frequency",
                 ),
                 dcc.Graph(id="filtered-view"),
+                html.H2("Top Client Activity Over Time"),
+                dcc.Graph(id="client-activity-view"),
             ],
             className="cardplot",
         ),
@@ -858,7 +878,6 @@ app.layout = html.Div(
 )
 
 
-# callback
 @app.callback(
     Output("filtered-view", "figure"),
     Input("client-filter", "value"),
@@ -869,22 +888,40 @@ def update_filtered_view(client, freq):
         dff = df
     else:
         dff = df[df["client"] == client]
-    if freq:
-        freq = freq
-    else:
+
+    if not freq:
         freq = "h"
+
     dff_grouped = (
         dff.groupby([pd.Grouper(key="timestamp", freq=freq), "status_type"])
         .size()
         .reset_index(name="count")
     )
 
-    fig = px.bar(
+    # Fill missing data with 0
+    all_times = pd.date_range(
+        dff_grouped["timestamp"].min(), dff_grouped["timestamp"].max(), freq=freq
+    )
+    status_types = ["Other", "Allowed", "Blocked"]
+    full_index = pd.MultiIndex.from_product(
+        [all_times, status_types], names=["timestamp", "status_type"]
+    )
+    dff_grouped = (
+        dff_grouped.set_index(["timestamp", "status_type"])
+        .reindex(full_index, fill_value=0)
+        .reset_index()
+    )
+    dff_grouped["status_type"] = pd.Categorical(
+        dff_grouped["status_type"], categories=status_types, ordered=True
+    )
+    dff_grouped = dff_grouped.sort_values("status_type")
+
+    fig = px.area(
         dff_grouped,
         x="timestamp",
         y="count",
         color="status_type",
-        barmode="stack",
+        line_group="status_type",
         title=f"DNS Queries Over Time for {client or 'All Clients'}",
         color_discrete_map={
             "Allowed": "#10b981",
@@ -894,6 +931,74 @@ def update_filtered_view(client, freq):
         template="plotly_white",
         labels={"timestamp": "Date", "count": "Count", "status_type": "Query Status"},
     )
+
+    fig.update_traces(
+        mode="lines",
+        line_shape="spline",
+        line=dict(width=0.5),
+        stackgroup="one",
+    )
+
+    return fig
+
+
+@app.callback(
+    Output("client-activity-view", "figure"),
+    Input("client-filter", "value"),
+    Input("freq-filter", "value"),
+)
+def update_client_activity(client, freq):
+    if not client:
+        dff = df
+    else:
+        dff = df[df["client"] == client]
+
+    if not freq:
+        freq = "h"
+
+    top_clients = dff.groupby("client").size().nlargest(10).index
+    dff_top = dff[dff["client"].isin(top_clients)]
+    dff_grouped = (
+        dff_top.groupby([pd.Grouper(key="timestamp", freq=freq), "client"])
+        .size()
+        .reset_index(name="count")
+    )
+
+    # Fill missing data with no client activity with zero.
+    all_times = pd.date_range(
+        dff_grouped["timestamp"].min(), dff_grouped["timestamp"].max(), freq=freq
+    )
+    pivot_df = (
+        dff_grouped.pivot(index="timestamp", columns="client", values="count")
+        .reindex(all_times)
+        .fillna(0)
+        .reset_index()
+        .rename(columns={"index": "timestamp"})
+    )
+    mod_df = pivot_df.melt(id_vars="timestamp", var_name="client", value_name="count")
+
+    default_colors = px.colors.qualitative.Plotly
+    client_color_map = dict(zip(top_clients, itertools.cycle(default_colors)))
+
+    fig = px.area(
+        mod_df,
+        x="timestamp",
+        y="count",
+        color="client",
+        line_group="client",
+        color_discrete_map=client_color_map,
+        template="plotly_white",
+        labels={"timestamp": "Date", "count": "Count", "client": "Client IP"},
+    )
+
+    fig.update_traces(
+        mode="lines",
+        line_shape="spline",
+        line=dict(width=0.2),
+        stackgroup="one",
+        connectgaps=False,
+    )
+
     return fig
 
 
