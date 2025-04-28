@@ -10,6 +10,7 @@ from dash import Dash, dcc, html, Input, Output
 from datetime import datetime, timedelta
 from pathlib import Path
 import itertools
+import os
 
 
 ####### command line options #######
@@ -19,16 +20,22 @@ parser = argparse.ArgumentParser(
     description="Generate an interactive dashboard for Pi-hole query statistics."
 )
 parser.add_argument(
-    "--days", type=int, default=365, help="Number of days of data to analyze."
+    "--days",
+    type=int,
+    default=int(os.getenv("PIHOLE_LT_STATS_DAYS", 365)),
+    help="Number of days of data to analyze. Env: PIHOLE_LT_STATS_DAYS",
 )
 parser.add_argument(
     "--db_path",
     type=str,
-    default="pihole-FTL.db",
-    help="Path to a copy of the PiHole FTL database.",
+    default=os.getenv("PIHOLE_LT_STATS_DB_PATH", "pihole-FTL.db"),
+    help="Path to a copy of the PiHole FTL database. Env: PIHOLE_LT_STATS_DB_PATH",
 )
 parser.add_argument(
-    "--port", type=int, default=9292, help="Port to serve the dash app at."
+    "--port",
+    type=int,
+    default=int(os.getenv("PIHOLE_LT_STATS_PORT", 9292)),
+    help="Port to serve the dash app at. Env: PIHOLE_LT_STATS_PORT",
 )
 args = parser.parse_args()
 

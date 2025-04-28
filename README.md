@@ -23,49 +23,85 @@ A dashboard built with **Dash** and **Plotly** to explore long-term DNS query da
 ## 📦 Dependencies
 
 - Python 3
+- [uv](https://github.com/astral-sh/uv) (for managing Python dependencies)
 - Pi-hole (> v.6) FTL database file (pihole-FTL.db)
-- Python packages:  
-  - `dash`  
-  - `plotly`  
-  - `pandas`
-
-    
-    ```bash
-    python -m pip install dash plotly pandas
-    ```
 
 ## 🚀 Getting Started
-- Clone this repository and move into the project folder:
+
+There are two main ways to run the dashboard: directly using `uv` or via Docker.
+
+### Using `uv`
+
+1. Clone this repository and move into the project folder:
 
     ```bash
     git clone https://github.com/davistdaniel/PiHoleLongTermStats.git
     cd PiHoleLongTermStats
     ```
 
-- Make sure you have all dependencies (see above) needed by the dashboard to work.
-- Make a copy/backup of your pihole-FTL.db (**Important!**). Don't use your actual Pi-hole FTL db file for querying.
+2. Install dependencies using `uv`:
 
     ```bash
-    sudo cp /etc/pihole/pihole-FTL.db $HOME/PiHoleLongTermStats/
+    uv sync
     ```
 
-- Change the ownership of the copied/backup database file to your user account:
+3. Make a copy/backup of your `pihole-FTL.db`
+   > [!WARNING]
+   > Don't use your actual Pi-hole FTL db file for querying. Place the copy in the project root or specify its path using the `--db_path` argument or `PIHOLE_LT_STATS_DB_PATH` environment variable.
 
     ```bash
-    sudo chown $USER:$USER $HOME/PiHoleLongTermStats/pihole-FTL.db
+    # Example: Copy from the default Pi-hole location
+    sudo cp /etc/pihole/pihole-FTL.db . 
+    # Ensure the user running the app has read permissions
+    sudo chown $USER:$USER pihole-FTL.db 
     ```
-- Run app.py. 
+
+4. Run the app using `uv`:
 
     ```bash
-    python app.py
+    uv run python app.py [OPTIONS]
     ```
-    You can also provide optional flags to customize behavior:
+    See the Configuration section below for available options.
 
-        --db_path → Path to the copied Pi-hole database file
+### Using Docker
 
-        --days → Number of days of past data to analyze (default: 365)
+1. Clone this repository:
 
-        --port → Port number to serve the Dash app on (default: 9292)
+    ```bash
+    git clone https://github.com/davistdaniel/PiHoleLongTermStats.git
+    cd PiHoleLongTermStats
+    ```
+2. Make a copy/backup of your `pihole-FTL.db` (**Important!**) and place it in the project root directory.
+
+    ```bash
+    # Example: Copy from the default Pi-hole location
+    sudo cp /etc/pihole/pihole-FTL.db . 
+    # Ensure the user running the app has read permissions (Docker needs this)
+    sudo chown $USER:$USER pihole-FTL.db
+    ```
+
+3. Build the Docker image:
+
+    ```bash
+    docker build -t pihole-long-term-stats .
+    ```
+
+4. Run the Docker container, mounting the database file and mapping the port:
+
+    ```bash
+    docker run -p 9292:9292 -v "$(pwd)/pihole-FTL.db:/app/pihole-FTL.db:ro" pihole-long-term-stats [OPTIONS]
+    ```
+    Note: The database is mounted read-only (`:ro`). You can pass configuration options (see below) after the image name. Ensure the internal path `/app/pihole-FTL.db` is used if setting `PIHOLE_LT_STATS_DB_PATH` or `--db_path` inside Docker.
+
+## ⚙️ Configuration
+
+You can configure the application using command-line arguments or environment variables:
+
+| Command-Line Argument | Environment Variable         | Default Value   | Description                                      |
+|-----------------------|------------------------------|-----------------|--------------------------------------------------|
+| `--db_path PATH`      | `PIHOLE_LT_STATS_DB_PATH`    | `pihole-FTL.db` | Path to the copied Pi-hole database file.        |
+| `--days DAYS`         | `PIHOLE_LT_STATS_DAYS`       | `365`           | Number of days of past data to analyze.          |
+| `--port PORT`         | `PIHOLE_LT_STATS_PORT`       | `9292`          | Port number to serve the Dash app on.            |
 
 ## 🧑‍💻 Contributing
 
