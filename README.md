@@ -23,14 +23,13 @@ A dashboard built with **Dash** and **Plotly** to explore long-term DNS query da
 ## 📦 Dependencies
 
 - Python 3
-- [uv](https://github.com/astral-sh/uv) (for managing Python dependencies)
 - Pi-hole (> v.6) FTL database file (pihole-FTL.db)
 
 ## 🚀 Getting Started
 
-There are two main ways to run the dashboard: directly using `uv` or via Docker.
+There are two main ways to run the dashboard: directly using Python or via Docker.
 
-### Using `uv`
+### Using Python
 
 1. Clone this repository and move into the project folder:
 
@@ -39,10 +38,10 @@ There are two main ways to run the dashboard: directly using `uv` or via Docker.
     cd PiHoleLongTermStats
     ```
 
-2. Install dependencies using `uv`:
+2. Install dependencies using pip:
 
     ```bash
-    uv sync
+    pip install -r requirements.txt
     ```
 
 3. Make a copy/backup of your `pihole-FTL.db`
@@ -56,10 +55,10 @@ There are two main ways to run the dashboard: directly using `uv` or via Docker.
 > [!WARNING]
 > Don't use your actual Pi-hole FTL db file for querying. Place the copy in the project root or specify its path using the `--db_path` argument or `PIHOLE_LT_STATS_DB_PATH` environment variable.
 
-4. Run the app using `uv`:
+4. Run the app:
 
     ```bash
-    uv run python app.py [OPTIONS]
+    python app.py [OPTIONS]
     ```
     See the Configuration section below for available options.
 
