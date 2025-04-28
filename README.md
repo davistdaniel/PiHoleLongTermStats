@@ -46,8 +46,8 @@ There are two main ways to run the dashboard: directly using `uv` or via Docker.
     ```
 
 3. Make a copy/backup of your `pihole-FTL.db`
-   > [!WARNING]
-   > Don't use your actual Pi-hole FTL db file for querying. Place the copy in the project root or specify its path using the `--db_path` argument or `PIHOLE_LT_STATS_DB_PATH` environment variable.
+> [!WARNING]
+> Don't use your actual Pi-hole FTL db file for querying. Place the copy in the project root or specify its path using the `--db_path` argument or `PIHOLE_LT_STATS_DB_PATH` environment variable.
 
     ```bash
     # Example: Copy from the default Pi-hole location
