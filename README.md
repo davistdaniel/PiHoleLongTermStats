@@ -82,15 +82,26 @@ There are two main ways to run the dashboard: directly using Python or via Docke
 3. Build the Docker image:
 
     ```bash
-    docker build -t pihole-long-term-stats .
+    sudo docker build -t pihole-long-term-stats .
     ```
 
 4. Run the Docker container, mounting the database file and mapping the port:
 
     ```bash
-    docker run -p 9292:9292 -v "$(pwd)/pihole-FTL.db:/app/pihole-FTL.db:ro" pihole-long-term-stats [OPTIONS]
+    sudo docker run -d --name pihole-LT-stats \
+    --restart always \
+    -p 9292:9292 \
+    -v "$(pwd)/pihole-FTL.db:/app/pihole-FTL.db:ro" \
+    pihole-long-term-stats
     ```
-    Note: The database is mounted read-only (`:ro`). You can pass configuration options (see below) after the image name. Ensure the internal path `/app/pihole-FTL.db` is used if setting `PIHOLE_LT_STATS_DB_PATH` or `--db_path` inside Docker.
+    Note: The database is mounted read-only (`:ro`). You can pass configuration options (see below). Ensure the internal path `/app/pihole-FTL.db` is used if setting `PIHOLE_LT_STATS_DB_PATH` or `--db_path` inside Docker.
+
+5. To stop the container :
+
+    ```bash
+    sudo docker stop pihole-LT-stats
+    sudo docker rm pihole-LT-stats
+    ````
 
 ## ⚙️ Configuration
 
