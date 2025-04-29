@@ -11,7 +11,12 @@ from datetime import datetime, timedelta
 from pathlib import Path
 import itertools
 import os
+import logging
 
+# logging setup
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 
 ####### command line options #######
 
@@ -78,9 +83,13 @@ def read_pihole_ftl_db(db_path="pihole-FTL.db", days=365):
 ####### data collection for cards and plots #######
 
 # read pihole ftl db
+logging.info(f"Reading Pi hole DB from {args.db_path} for {args.days} days")
 df = read_pihole_ftl_db(db_path=args.db_path, days=args.days)
+logging.info("Converted DB to a pandas dataframe")
+
 
 # basic time processing
+logging.info(f"Processing timestamps for the past {args.days} days")
 df["timestamp"] = pd.to_datetime(df["timestamp"], unit="s")
 df["date"] = df["timestamp"].dt.date
 df["hour"] = df["timestamp"].dt.hour
@@ -89,8 +98,11 @@ latest_data_point = f"until {df['timestamp'].iloc[-1].strftime('%-d-%-m-%Y, %H:%
 min_date = df["timestamp"].min()
 max_date = df["timestamp"].max()
 data_span_days = (max_date - min_date).days
+logging.info(f"Data loaded with {len(df)} rows, spanning from {min_date} to {max_date}")
+
 
 # status ids for pihole ftl db, see pi-hole FTL docs
+logging.info("Processing allowed and blocked status codes")
 allowed_statuses = [2, 3, 12, 13, 14, 17]
 blocked_statuses = [1, 4, 5, 6, 7, 8, 9, 10, 11, 15, 16, 18]
 df["status_type"] = df["status"].apply(
@@ -100,6 +112,7 @@ df["status_type"] = df["status"].apply(
 )
 
 # plot data for top clients plot
+logging.info("Processing top clients data")
 top_clients_stacked = (
     df[df["client"].notna()]
     .groupby(["client", "status_type"])
@@ -108,6 +121,7 @@ top_clients_stacked = (
 )
 
 # plot data for top allowed and blocked domains plot
+logging.info("Processing top allowed and blocked domains data")
 blocked_df = (
     df[df["status_type"] == "Blocked"]["domain"]
     .value_counts()
@@ -125,12 +139,14 @@ allowed_df = (
 )
 
 # data related to info cards
+logging.info("Generating data for info cards")
 total_queries = len(df)
 blocked_count = len(df[df["status_type"] == "Blocked"])
 allowed_count = len(df[df["status_type"] == "Allowed"])
 blocked_pct = (blocked_count / total_queries) * 100
 allowed_pct = (allowed_count / total_queries) * 100
 ## top allowed and blocked domain card
+logging.info("Finding top allowed and blocked domain")
 top_client = df["client"].value_counts().idxmax()
 top_allowed_domain = (
     df[df["status_type"] == "Allowed"]["domain"].value_counts().idxmax()
@@ -140,6 +156,7 @@ top_blocked_domain = (
 )
 
 # data for most persistent client card
+logging.info("Finding most persistent client")
 blocked_df_c = df[df["status_type"] == "Blocked"]
 persistence = (
     blocked_df_c.groupby(["client", "domain"])
@@ -154,6 +171,9 @@ repeat_attempts = most_persistent_row["count"]
 
 
 # data for day and night stats cards
+logging.info("Processing day and night stats")
+
+
 def get_day_night_top_stats(period_df):
     return {
         "top_client": period_df["client"].value_counts().idxmax(),
@@ -179,6 +199,7 @@ day_stats = get_day_night_top_stats(day_df)
 night_stats = get_day_night_top_stats(night_df)
 
 # data for date with most activity and least acitivity
+logging.info("Finding date with most and least activity")
 query_date_counts = df.groupby("date")["domain"].count()
 blocked_date_counts = (
     df[df["status_type"] == "Blocked"].groupby("date")["domain"].count()
@@ -195,6 +216,7 @@ date_least_blocked = blocked_date_counts.idxmin().strftime("%d %B %Y")
 date_least_allowed = allowed_date_counts.idxmin().strftime("%d %B %Y")
 
 # data for most active hour and least active hour
+logging.info("Finding most and least active hour")
 hourly_avg = df.groupby("hour").size().mean()
 hourly_counts = df.groupby("hour").size()
 most_active_hour = hourly_counts.idxmax()
@@ -203,8 +225,8 @@ avg_queries_most = hourly_counts.max()
 avg_queries_least = hourly_counts.min()
 
 # data for most active day and least active day
+logging.info("Finding most and least active day of the week")
 df["day_name"] = df["timestamp"].dt.day_name()
-df["date"] = df["timestamp"].dt.date  # already present, but just in case
 daily_counts = df.groupby(["date", "day_name"]).size().reset_index(name="query_count")
 avg = (
     daily_counts.groupby("day_name")["query_count"].mean().sort_values(ascending=False)
@@ -215,6 +237,7 @@ least_active_day = avg.idxmin()
 least_active_avg = int(avg.min())
 
 # data for longest blocking streak
+logging.info("Finding longest blocking and allowing streak")
 df_sorted = df.sort_values("timestamp").copy()
 df_sorted["is_blocked"] = df_sorted["status_type"] == "Blocked"
 df_sorted["is_allowed"] = df_sorted["status_type"] == "Allowed"
@@ -245,11 +268,13 @@ streak_date_allowed = streak_start_time_allowed.strftime("%d %B %Y")
 streak_hour_allowed = streak_start_time_allowed.strftime("%H:%M")
 
 # data for longest idle gap
+logging.info("Finding longest idle gap")
 df_sorted["idle_gap"] = df_sorted["timestamp"].diff().dt.total_seconds()
 max_idle_ms = df_sorted["idle_gap"].max()
 max_idle_idx = df_sorted["idle_gap"].idxmax()
 
 # data for average time between blocked and allowed queries
+logging.info("Finding average time between blocked and allowed queries")
 blocked = df_sorted[df_sorted["status_type"] == "Blocked"]
 blocked_times = blocked["timestamp"].diff().dt.total_seconds().dropna()
 avg_time_between_blocked = blocked_times.mean() if not blocked_times.empty else None
@@ -268,9 +293,11 @@ after_gap = df_sorted.loc[max_idle_idx, "timestamp"].strftime("%d-%b %Y %H:%M:%S
 ]
 
 # data for number of unique clients
+logging.info("Finding number of unique clients")
 unique_clients = df["client"].nunique()
 
 # data for most diverse client
+logging.info("Finding most diverse client")
 diverse_client_df = (
     df.groupby("client")["domain"].nunique().reset_index(name="unique_domains")
 )
@@ -280,19 +307,21 @@ most_diverse_client = diverse_client_df.iloc[0]["client"]
 unique_domains_count = diverse_client_df.iloc[0]["unique_domains"]
 
 # data for average reply times (in milliseconds)
+logging.info("Finding average reply times")
 df["reply_time"] = pd.to_numeric(df["reply_time"], errors="coerce")
 avg_reply_time = round(df["reply_time"].dropna().mean() * 1000, 3)
 max_reply_time = round(df["reply_time"].dropna().max() * 1000, 3)
 min_reply_time = round(df["reply_time"].dropna().min() * 1000, 3)
 
 # data for slowest domain reply time (in seconds)
+logging.info("Finding domain with slowest reply time")
 avg_reply_times = df.groupby("domain")["reply_time"].mean().reset_index()
 slowest_domain_row = avg_reply_times.sort_values("reply_time", ascending=False).iloc[0]
 slowest_domain = slowest_domain_row["domain"]
 slowest_avg_reply_time = slowest_domain_row["reply_time"]
 
-
 # init app
+logging.info("Initializing Dash app")
 app = Dash(__name__)
 app.title = "PiHole Long Term Statistics"
 app.layout = html.Div(
@@ -1011,4 +1040,4 @@ def update_client_activity(client, freq):
 
 # serve the app on user-requested port
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=args.port, debug=True)
+    app.run(host="0.0.0.0", port=args.port, debug=False)
