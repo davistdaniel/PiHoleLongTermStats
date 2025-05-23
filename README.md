@@ -62,18 +62,17 @@ There are multiple ways to run the dashboard: using Python, Docker, or Docker Co
 
 5. Open your browser and visit [http://localhost:9292](http://localhost:9292)
 
-### 🐳 Using Docker Compose
+### 🐳 Using Docker
 
 If you have a copy of your `pihole-FTL.db` file, you can quickly run the dashboard using Docker Compose.
 
-1. Clone this repository:
-
+1. Make a directory for PiHoleLongtermStats:
     ```bash
-    git clone https://github.com/davistdaniel/PiHoleLongTermStats.git
+    mkdir PiHoleLongTermStats
     cd PiHoleLongTermStats
     ```
 
-2. Make a copy/backup of your `pihole-FTL.db` (**Important!**) and place it in the project root directory.
+2. Make a copy/backup of your `pihole-FTL.db` (**Important!**) and place it in the PiHoleLongTermStats directory:
 
    ```bash
    # Example: Copy from the default Pi-hole location
@@ -81,60 +80,35 @@ If you have a copy of your `pihole-FTL.db` file, you can quickly run the dashboa
    # Ensure the user running the app has read permissions (Docker needs this)
    sudo chown $USER:$USER pihole-FTL.db
    ```
+3. Make a docker-compose.yml file in the same directory:
 
-3. You can change the configurations in the docker-compose.yml file or start the dashboard with the default options:
+    ```docker
+    services:
+    pihole-long-term-stats:
+        image: ghcr.io/davistdaniel/piholelongtermstats:latest
+        container_name: pihole-lt-stats
+        ports:
+        # Map host port 9292 to container port 9292
+        - "9292:9292"  
+        volumes:
+        # Path to your Pi-hole DB file (adjust if it's not in current directory)
+        - ./pihole-FTL.db:/app/pihole-FTL.db:ro  
+        environment:
+        # Path inside the container to the mounted DB file
+        - PIHOLE_LT_STATS_DB_PATH=/app/pihole-FTL.db
+        # Number of days of data to analyze; change if desired 
+        - PIHOLE_LT_STATS_DAYS=365 
+        # Port the app listens to inside container; keep in sync with ports mapping                   
+        - PIHOLE_LT_STATS_PORT=9292                   
+        restart: unless-stopped
+    ```
+    and run using :
 
-   ```bash
-   sudo docker compose up -d
-   ```
+    ```bash
+    sudo docker compose up -d
+    ```
 
 4. Open your browser and visit [http://localhost:9292](http://localhost:9292)
-
-### Using Docker
-
-1. Clone this repository:
-
-    ```bash
-    git clone https://github.com/davistdaniel/PiHoleLongTermStats.git
-    cd PiHoleLongTermStats
-    ```
-
-2. Make a copy/backup of your `pihole-FTL.db` (**Important!**) and place it in the project root directory.
-
-    ```bash
-    # Example: Copy from the default Pi-hole location
-    sudo cp /etc/pihole/pihole-FTL.db . 
-    # Ensure the user running the app has read permissions (Docker needs this)
-    sudo chown $USER:$USER pihole-FTL.db
-    ```
-
-3. Build the Docker image:
-
-    ```bash
-    sudo docker build -t pihole-long-term-stats .
-    ```
-
-4. Run the Docker container, mounting the database file and mapping the port:
-
-    ```bash
-    sudo docker run -d --name pihole-LT-stats \
-    --restart always \
-    -p 9292:9292 \
-    -v "$(pwd)/pihole-FTL.db:/app/pihole-FTL.db:ro" \
-    pihole-long-term-stats
-    ```
-
-    Note: The database is mounted read-only (`:ro`). You can pass configuration options (see below). Ensure the internal path `/app/pihole-FTL.db` is used if setting `PIHOLE_LT_STATS_DB_PATH` or `--db_path` inside Docker.
-
-5. Open your browser and visit [http://localhost:9292](http://localhost:9292)
-
-6. To stop the container :
-
-    ```bash
-    sudo docker stop pihole-LT-stats
-    sudo docker rm pihole-LT-stats
-    ```
-
 
 ## ⚙️ Configuration
 
@@ -148,7 +122,8 @@ You can configure the application using command-line arguments or environment va
 
 
 ## 🔁 Optional: Auto-Restart Script
-You can use the following helper script to periodically refresh your Pi-hole FTL database and restart the dashboard container automatically using Docker Compose. This ensures the dashboard stays up-to-date with the latest DNS query data.
+You can use the following helper script to periodically refresh your Pi-hole FTL database and restart the dashboard container automatically using Docker Compose. 
+
 ### auto_pihole_LT_stats.sh
 ```bash
 #!/bin/bash
@@ -157,7 +132,8 @@ APP_DIR="." # working directory with docker-compose.yml
 LOG_FILE="$APP_DIR/pihole_LT-stats.log"
 USER_NAME="yourusername" # replace with your actual system username
 
-# Time range in seconds
+# Time range in seconds, adjust to your liking
+# currently, it randomly chooses an update interval between MIN_SLEEP and MAX_SLEEP.
 MIN_SLEEP=$((1 * 24 * 3600))   # 1 day
 MAX_SLEEP=$((7 * 24 * 3600))   # 7 days
 
