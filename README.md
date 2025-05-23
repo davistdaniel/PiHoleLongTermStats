@@ -11,8 +11,6 @@ A dashboard built with **Dash** and **Plotly** to explore long-term DNS query da
 </details>
 </center>
 
-
-
 ## 🧰 Features
 - 🗂️ Info cards : Query stats, Activity stats, Day and Night stats
 - 📈 Interactive charts for query trends and client behavior  
@@ -27,7 +25,7 @@ A dashboard built with **Dash** and **Plotly** to explore long-term DNS query da
 
 ## 🚀 Getting Started
 
-There are two main ways to run the dashboard: directly using Python or via Docker.
+There are multiple ways to run the dashboard: using Python, Docker, or Docker Compose.
 
 ### Using Python
 
@@ -51,7 +49,7 @@ There are two main ways to run the dashboard: directly using Python or via Docke
     # Ensure the user running the app has read permissions
     sudo chown $USER:$USER pihole-FTL.db 
     ```
-    
+
 > [!WARNING]
 > Don't use your actual Pi-hole FTL db file for querying. Place the copy in the project root or specify its path using the `--db_path` argument or `PIHOLE_LT_STATS_DB_PATH` environment variable.
 
@@ -70,6 +68,7 @@ There are two main ways to run the dashboard: directly using Python or via Docke
     git clone https://github.com/davistdaniel/PiHoleLongTermStats.git
     cd PiHoleLongTermStats
     ```
+
 2. Make a copy/backup of your `pihole-FTL.db` (**Important!**) and place it in the project root directory.
 
     ```bash
@@ -94,6 +93,7 @@ There are two main ways to run the dashboard: directly using Python or via Docke
     -v "$(pwd)/pihole-FTL.db:/app/pihole-FTL.db:ro" \
     pihole-long-term-stats
     ```
+
     Note: The database is mounted read-only (`:ro`). You can pass configuration options (see below). Ensure the internal path `/app/pihole-FTL.db` is used if setting `PIHOLE_LT_STATS_DB_PATH` or `--db_path` inside Docker.
 
 5. To stop the container :
@@ -101,7 +101,31 @@ There are two main ways to run the dashboard: directly using Python or via Docke
     ```bash
     sudo docker stop pihole-LT-stats
     sudo docker rm pihole-LT-stats
-    ````
+    ```
+
+### 🐳 Using Docker Compose
+
+If you have a copy of your `pihole-FTL.db` file, you can quickly run the dashboard using Docker Compose.
+
+1. Make sure the `pihole-FTL.db` file is accessible and readable by Docker.  
+   You can copy it from the Pi-hole system (example below):
+
+   ```bash
+   # Example: Copy from the default Pi-hole location
+   sudo cp /etc/pihole/pihole-FTL.db . 
+   # Ensure the user running the app has read permissions (Docker needs this)
+   sudo chown $USER:$USER pihole-FTL.db
+   ```
+
+3. Start the dashboard:
+
+   ```bash
+   sudo docker compose up -d
+   ```
+
+4. Open your browser and visit [http://localhost:9292](http://localhost:9292)
+
+
 
 ## ⚙️ Configuration
 
