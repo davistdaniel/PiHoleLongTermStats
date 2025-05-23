@@ -60,6 +60,36 @@ There are multiple ways to run the dashboard: using Python, Docker, or Docker Co
     ```
     See the Configuration section below for available options.
 
+5. Open your browser and visit [http://localhost:9292](http://localhost:9292)
+
+### 🐳 Using Docker Compose
+
+If you have a copy of your `pihole-FTL.db` file, you can quickly run the dashboard using Docker Compose.
+
+1. Clone this repository:
+
+    ```bash
+    git clone https://github.com/davistdaniel/PiHoleLongTermStats.git
+    cd PiHoleLongTermStats
+    ```
+
+2. Make a copy/backup of your `pihole-FTL.db` (**Important!**) and place it in the project root directory.
+
+   ```bash
+   # Example: Copy from the default Pi-hole location
+   sudo cp /etc/pihole/pihole-FTL.db . 
+   # Ensure the user running the app has read permissions (Docker needs this)
+   sudo chown $USER:$USER pihole-FTL.db
+   ```
+
+3. You can change the configurations in the docker-compose.yml file or start the dashboard with the default options:
+
+   ```bash
+   sudo docker compose up -d
+   ```
+
+4. Open your browser and visit [http://localhost:9292](http://localhost:9292)
+
 ### Using Docker
 
 1. Clone this repository:
@@ -96,35 +126,14 @@ There are multiple ways to run the dashboard: using Python, Docker, or Docker Co
 
     Note: The database is mounted read-only (`:ro`). You can pass configuration options (see below). Ensure the internal path `/app/pihole-FTL.db` is used if setting `PIHOLE_LT_STATS_DB_PATH` or `--db_path` inside Docker.
 
-5. To stop the container :
+5. Open your browser and visit [http://localhost:9292](http://localhost:9292)
+
+6. To stop the container :
 
     ```bash
     sudo docker stop pihole-LT-stats
     sudo docker rm pihole-LT-stats
     ```
-
-### 🐳 Using Docker Compose
-
-If you have a copy of your `pihole-FTL.db` file, you can quickly run the dashboard using Docker Compose.
-
-1. Make sure the `pihole-FTL.db` file is accessible and readable by Docker.  
-   You can copy it from the Pi-hole system (example below):
-
-   ```bash
-   # Example: Copy from the default Pi-hole location
-   sudo cp /etc/pihole/pihole-FTL.db . 
-   # Ensure the user running the app has read permissions (Docker needs this)
-   sudo chown $USER:$USER pihole-FTL.db
-   ```
-
-3. Start the dashboard:
-
-   ```bash
-   sudo docker compose up -d
-   ```
-
-4. Open your browser and visit [http://localhost:9292](http://localhost:9292)
-
 
 
 ## ⚙️ Configuration
