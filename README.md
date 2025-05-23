@@ -146,6 +146,62 @@ You can configure the application using command-line arguments or environment va
 | `--days DAYS`         | `PIHOLE_LT_STATS_DAYS`       | `365`           | Number of days of past data to analyze.          |
 | `--port PORT`         | `PIHOLE_LT_STATS_PORT`       | `9292`          | Port number to serve the Dash app on.            |
 
+
+## 🔁 Optional: Auto-Restart Script
+You can use the following helper script to periodically refresh your Pi-hole FTL database and restart the dashboard container automatically using Docker Compose. This ensures the dashboard stays up-to-date with the latest DNS query data.
+### auto_pihole_LT_stats.sh
+```bash
+#!/bin/bash
+
+APP_DIR="." # working directory with docker-compose.yml
+LOG_FILE="$APP_DIR/pihole_LT-stats.log"
+USER_NAME="yourusername" # replace with your actual system username
+
+# Time range in seconds
+MIN_SLEEP=$((1 * 24 * 3600))   # 1 day
+MAX_SLEEP=$((7 * 24 * 3600))   # 7 days
+
+while true; do
+  echo "[$(date)] Starting Pi-hole LT statistics dashboard via Docker Compose" | tee -a "$LOG_FILE"
+
+  # Copy DB
+  if cp /etc/pihole/pihole-FTL.db "$APP_DIR/pihole-FTL.db"; then
+    chown "$USER_NAME:$USER_NAME" "$APP_DIR/pihole-FTL.db"
+    echo "[$(date)] Copied pihole-FTL.db and updated ownership" | tee -a "$LOG_FILE"
+  else
+    echo "[$(date)] ERROR: Failed to copy pihole-FTL.db. Using existing database. Skipping container restart." | tee -a "$LOG_FILE"
+    continue
+  fi
+
+  # Stop and remove existing container
+  echo "[$(date)] Stopping existing container..." | tee -a "$LOG_FILE"
+  docker compose -f "$APP_DIR/docker-compose.yml" down >> "$LOG_FILE" 2>&1
+
+  # Start the container
+  echo "[$(date)] Starting container..." | tee -a "$LOG_FILE"
+  docker compose -f "$APP_DIR/docker-compose.yml" up -d >> "$LOG_FILE" 2>&1
+
+  echo "[$(date)] Container restarted via Docker Compose." | tee -a "$LOG_FILE"
+
+  # Generate random sleep duration
+  SLEEP_DURATION=$((RANDOM % (MAX_SLEEP - MIN_SLEEP + 1) + MIN_SLEEP))
+
+  HOURS=$((SLEEP_DURATION / 3600))
+  MINUTES=$(((SLEEP_DURATION % 3600) / 60))
+  NEXT_UPDATE_TIME=$(date -d "+$SLEEP_DURATION seconds" +"%Y-%m-%d %H:%M:%S")
+
+  echo "[$(date)] Sleeping for $HOURS hours and $MINUTES minutes. Next update at $NEXT_UPDATE_TIME." | tee -a "$LOG_FILE"
+
+  sleep "$SLEEP_DURATION"
+done
+```
+### Usage
+Make the script executable and run it: 
+```bash
+chmod +x auto_pihole_LT_stats.sh
+sudo ./auto_pihole_LT_stats.sh
+```
+
 ## 🧑‍💻 Contributing
 
 Feel free to fork and contribute! Feature ideas or bug fixes are always welcome.
