@@ -25,7 +25,7 @@ A dashboard built with **Dash** and **Plotly** to explore long-term DNS query da
 
 ## 🚀 Getting Started
 
-There are multiple ways to run the dashboard: using Python, Docker, or Docker Compose.
+There are multiple ways to run the dashboard: using Python or Docker.
 
 ### Using Python
 
@@ -42,16 +42,13 @@ There are multiple ways to run the dashboard: using Python, Docker, or Docker Co
     pip install -r requirements.txt
     ```
 
-3. Make a copy/backup of your `pihole-FTL.db`
+3. Make a copy/backup (Important!) of your `pihole-FTL.db`
     ```bash
     # Example: Copy from the default Pi-hole location
     sudo cp /etc/pihole/pihole-FTL.db . 
     # Ensure the user running the app has read permissions
     sudo chown $USER:$USER pihole-FTL.db 
     ```
-
-> [!WARNING]
-> Don't use your actual Pi-hole FTL db file for querying. Place the copy in the project root or specify its path using the `--db_path` argument or `PIHOLE_LT_STATS_DB_PATH` environment variable.
 
 4. Run the app:
 
@@ -104,6 +101,9 @@ If you have a copy of your `pihole-FTL.db` file, you can quickly run the dashboa
     ```
 
 4. Open your browser and visit [http://localhost:9292](http://localhost:9292)
+
+> [!WARNING]
+> Don't use your actual Pi-hole FTL db file for querying. Place the copy in the project root or specify its path using the `--db_path` argument or `PIHOLE_LT_STATS_DB_PATH` environment variable.
 
 ## ⚙️ Configuration
 
