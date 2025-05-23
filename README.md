@@ -84,22 +84,17 @@ If you have a copy of your `pihole-FTL.db` file, you can quickly run the dashboa
 
     ```docker
     services:
-    pihole-long-term-stats:
+      pihole-long-term-stats:
         image: ghcr.io/davistdaniel/piholelongtermstats:latest
         container_name: pihole-lt-stats
         ports:
-        # Map host port 9292 to container port 9292
-        - "9292:9292"  
+          - "9292:9292"  # Map host port 9292 to container port 9292
         volumes:
-        # Path to your Pi-hole DB file (adjust if it's not in current directory)
-        - ./pihole-FTL.db:/app/pihole-FTL.db:ro  
+          - ./pihole-FTL.db:/app/pihole-FTL.db:ro  # Path to your Pi-hole DB file (adjust if it's not in current directory)
         environment:
-        # Path inside the container to the mounted DB file
-        - PIHOLE_LT_STATS_DB_PATH=/app/pihole-FTL.db
-        # Number of days of data to analyze; change if desired 
-        - PIHOLE_LT_STATS_DAYS=365 
-        # Port the app listens to inside container; keep in sync with ports mapping                   
-        - PIHOLE_LT_STATS_PORT=9292                   
+          - PIHOLE_LT_STATS_DB_PATH=/app/pihole-FTL.db  # Path inside the container to the mounted DB file
+          - PIHOLE_LT_STATS_DAYS=365                    # Number of days of data to analyze; change if desired
+          - PIHOLE_LT_STATS_PORT=9292                   # Port the app listens to inside container; keep in sync with ports mapping
         restart: unless-stopped
     ```
     and run using :
