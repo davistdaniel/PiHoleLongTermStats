@@ -90,7 +90,7 @@ If you have a copy of your `pihole-FTL.db` file, you can quickly run the dashboa
           - ./pihole-FTL.db:/app/pihole-FTL.db:ro  # Path to your Pi-hole DB file (adjust if it's not in current directory)
         environment:
           - PIHOLE_LT_STATS_DB_PATH=/app/pihole-FTL.db  # Path inside the container to the mounted DB file
-          - PIHOLE_LT_STATS_DAYS=365                    # Number of days of data to analyze; change if desired
+          - PIHOLE_LT_STATS_DAYS=31                    # Number of days of data to analyze; change if desired
           - PIHOLE_LT_STATS_PORT=9292                   # Port the app listens to inside container; keep in sync with ports mapping
         restart: unless-stopped
     ```
