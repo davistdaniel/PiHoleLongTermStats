@@ -27,7 +27,7 @@ parser = argparse.ArgumentParser(
 parser.add_argument(
     "--days",
     type=int,
-    default=int(os.getenv("PIHOLE_LT_STATS_DAYS", 365)),
+    default=int(os.getenv("PIHOLE_LT_STATS_DAYS", 31)),
     help="Number of days of data to analyze. Env: PIHOLE_LT_STATS_DAYS",
 )
 parser.add_argument(
@@ -46,7 +46,7 @@ args = parser.parse_args()
 
 
 ####### reading the database #######
-def read_pihole_ftl_db(db_path="pihole-FTL.db", days=365):
+def read_pihole_ftl_db(db_path="pihole-FTL.db", days=31):
     """
     Reads in the pihole-FTL.db into a pandas dataframe.
     """
@@ -86,7 +86,6 @@ def read_pihole_ftl_db(db_path="pihole-FTL.db", days=365):
 logging.info(f"Reading Pi hole DB from {args.db_path} for {args.days} days")
 df = read_pihole_ftl_db(db_path=args.db_path, days=args.days)
 logging.info("Converted DB to a pandas dataframe")
-
 
 # basic time processing
 logging.info(f"Processing timestamps for the past {args.days} days")
@@ -328,7 +327,7 @@ app.layout = html.Div(
     [
         html.H1("PiHole Long Term Statistics", style={"textAlign": "center"}),
         html.H4(
-            f"{latest_data_point}. Data is available for {data_span_days} days.",
+            f"{latest_data_point}. Data is visualized for {data_span_days} days.",
             style={"textAlign": "center"},
         ),
         # info cards

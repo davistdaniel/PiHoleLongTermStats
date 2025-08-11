@@ -103,7 +103,7 @@ If you have a copy of your `pihole-FTL.db` file, you can quickly run the dashboa
 4. Open your browser and visit [http://localhost:9292](http://localhost:9292)
 
 > [!WARNING]
-> Don't use your actual Pi-hole FTL db file for querying. Place the copy in the project root or specify its path using the `--db_path` argument or `PIHOLE_LT_STATS_DB_PATH` environment variable.
+> Using your actual Pi-hole FTL db file for querying is **not** recommended. Place the copy in the project root or specify its path using the `--db_path` argument or `PIHOLE_LT_STATS_DB_PATH` environment variable. In any case, PiHoleLongTermStats does not monitor for changes in the Pi-hole FTL db file even if you mount it.
 
 ## ⚙️ Configuration
 
@@ -112,7 +112,7 @@ You can configure the application using command-line arguments or environment va
 | Command-Line Argument | Environment Variable         | Default Value   | Description                                      |
 |-----------------------|------------------------------|-----------------|--------------------------------------------------|
 | `--db_path PATH`      | `PIHOLE_LT_STATS_DB_PATH`    | `pihole-FTL.db` | Path to the copied Pi-hole database file.        |
-| `--days DAYS`         | `PIHOLE_LT_STATS_DAYS`       | `365`           | Number of days of past data to analyze.          |
+| `--days DAYS`         | `PIHOLE_LT_STATS_DAYS`       | `31`           | Number of days of past data to analyze.          |
 | `--port PORT`         | `PIHOLE_LT_STATS_PORT`       | `9292`          | Port number to serve the Dash app on.            |
 
 
