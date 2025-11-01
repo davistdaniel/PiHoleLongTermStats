@@ -1075,7 +1075,7 @@ def serve_layout(db_path, days, start_date=None, end_date=None):
 
 logging.info("Initializing Dash app")
 app = Dash(__name__)
-app.title = "PiHole Long Term Statistics"
+app.title = "PiHoleLongTermStats"
 
 # Initialize with data
 PIHOLE_FTL_DF, initial_layout = serve_layout(args.db_path, args.days)
