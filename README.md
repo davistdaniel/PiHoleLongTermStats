@@ -6,7 +6,7 @@ A dashboard built with **Dash** and **Plotly** to explore long-term DNS query da
 **Disclaimer : This is an unofficial, third-party project. The Pi Hole team and the development of Pi Hole software is not related to this project.**
 
 <center>
-<img src="assets/screenshot.gif" alt="Dashboard Screenshot 1" width="600">
+<img src="assets/screenshot1.png" alt="Dashboard Screenshot 1" width="600">
 
 <details>
 <summary>More screenshots</summary>
@@ -31,40 +31,8 @@ A dashboard built with **Dash** and **Plotly** to explore long-term DNS query da
 There are multiple ways to run the dashboard: using Python or Docker.
 
 > [!WARNING]
-> Using your actual Pi-hole FTL db file for querying is **not** recommended. Place the copy in the project root or specify its path using the `--db_path` argument or `PIHOLE_LT_STATS_DB_PATH` environment variable. You can set up a cron job to periodically copy the FTL database to this location, ensuring your stats are updated without touching the live database. In any case, PiHoleLongTermStats does not monitor for changes in the Pi-hole FTL db file even if you mount it. PiHoleLongTermStats re-reads the Pi-hole FTL db file at the provided path and re-computes all the stats every time the page is reloaded or the reload button is clicked in the dashboard. 
+> Using your actual Pi-hole FTL db file for querying is **not** recommended and it is advised to use a copy. Place the copy in the project root or specify its path using the `--db_path` argument or `PIHOLE_LT_STATS_DB_PATH` environment variable. You can set up a cron job to periodically copy the FTL database to this location, ensuring your stats are updated without touching the live database. In any case, PiHoleLongTermStats does not monitor for changes in the Pi-hole FTL db file even if you mount it. PiHoleLongTermStats re-reads the Pi-hole FTL db file at the provided path and re-computes all the stats every time the page is reloaded or the reload button is clicked in the dashboard. 
 
-
-### Using Python
-
-1. Clone this repository and move into the project folder:
-
-    ```bash
-    git clone https://github.com/davistdaniel/PiHoleLongTermStats.git
-    cd PiHoleLongTermStats
-    ```
-
-2. Install dependencies using pip:
-
-    ```bash
-    pip install -r requirements.txt
-    ```
-
-3. Make a copy/backup of your `pihole-FTL.db` (**Important!**) and place it in the PiHoleLongTermStats directory:
-    ```bash
-    # Example: Copy from the default Pi-hole location
-    sudo cp /etc/pihole/pihole-FTL.db . 
-    # Ensure the user running the app has read permissions
-    sudo chown $USER:$USER pihole-FTL.db 
-    ```
-
-4. Run the app:
-
-    ```bash
-    python app.py [OPTIONS]
-    ```
-    See the Configuration section below for available options.
-
-5. Open your browser and visit [http://localhost:9292](http://localhost:9292)
 
 ### 🐳 Using Docker
 
@@ -109,6 +77,37 @@ If you have a copy of your `pihole-FTL.db` file, you can quickly run the dashboa
 
 4. Open your browser and visit [http://localhost:9292](http://localhost:9292)
 
+### Using Python
+
+1. Clone this repository and move into the project folder:
+
+    ```bash
+    git clone https://github.com/davistdaniel/PiHoleLongTermStats.git
+    cd PiHoleLongTermStats
+    ```
+
+2. Install dependencies using pip:
+
+    ```bash
+    pip install -r requirements.txt
+    ```
+
+3. Make a copy/backup of your `pihole-FTL.db` (**Important!**) and place it in the PiHoleLongTermStats directory:
+    ```bash
+    # Example: Copy from the default Pi-hole location
+    sudo cp /etc/pihole/pihole-FTL.db . 
+    # Ensure the user running the app has read permissions
+    sudo chown $USER:$USER pihole-FTL.db 
+    ```
+
+4. Run the app:
+
+    ```bash
+    python app.py [OPTIONS]
+    ```
+    See the Configuration section below for available options.
+
+5. Open your browser and visit [http://localhost:9292](http://localhost:9292)
 
 ## ⚙️ Configuration
 
