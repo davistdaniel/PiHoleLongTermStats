@@ -1,9 +1,12 @@
-# Pi Hole Long Term Statistics
+# Pi Hole Long Term Statistics v.0.1.1
 
 A dashboard built with **Dash** and **Plotly** to explore long-term DNS query data from a **Pi-hole v.6** FTL database file. Visualize allowed vs blocked domains, top clients, and query trends over time. If you find this project helpful, please consider giving it a ⭐ to show your support.
 
+
+**Disclaimer : This is an unofficial, third-party project. The Pi Hole team and the development of Pi Hole software is not related to this project.**
+
 <center>
-<img src="assets/screenshot.gif" alt="Dashboard Screenshot 1" width="600">
+<img src="assets/screenshot1.png" alt="Dashboard Screenshot 1" width="600">
 
 <details>
 <summary>More screenshots</summary>
@@ -12,52 +15,24 @@ A dashboard built with **Dash** and **Plotly** to explore long-term DNS query da
 </center>
 
 ## 🧰 Features
-- 🗂️ Info cards : Query stats, Activity stats, Day and Night stats
+- 🗂️ Info cards : Query stats, Activity stats, Day and Night stats. See [all supported metrics](#supported-metrics)
 - 📈 Interactive charts for query trends and client behavior  
 - 🔍 Filter queries by client  
 - 🌐 View top blocked/allowed domains  
-- 📅 Analyze queries over a custom number of past days  
+- 📅 Analyze queries and compute stats over a custom date range.
 
 ## 📦 Dependencies
 
-- Python 3
+- Python 3.10 and above
 - Pi-hole (> v.6) FTL database file (pihole-FTL.db)
 
 ## 🚀 Getting Started
 
 There are multiple ways to run the dashboard: using Python or Docker.
 
-### Using Python
+> [!WARNING]
+> Using your actual Pi-hole FTL db file for querying is **not** recommended and it is advised to use a copy. Place the copy in the project root or specify its path using the `--db_path` argument or `PIHOLE_LT_STATS_DB_PATH` environment variable. You can set up a cron job to periodically copy the FTL database to this location, ensuring your stats are updated without touching the live database. In any case, PiHoleLongTermStats does not monitor for changes in the Pi-hole FTL db file even if you mount it. PiHoleLongTermStats re-reads the Pi-hole FTL db file at the provided path and re-computes all the stats every time the page is reloaded or the reload button is clicked in the dashboard. 
 
-1. Clone this repository and move into the project folder:
-
-    ```bash
-    git clone https://github.com/davistdaniel/PiHoleLongTermStats.git
-    cd PiHoleLongTermStats
-    ```
-
-2. Install dependencies using pip:
-
-    ```bash
-    pip install -r requirements.txt
-    ```
-
-3. Make a copy/backup (Important!) of your `pihole-FTL.db`
-    ```bash
-    # Example: Copy from the default Pi-hole location
-    sudo cp /etc/pihole/pihole-FTL.db . 
-    # Ensure the user running the app has read permissions
-    sudo chown $USER:$USER pihole-FTL.db 
-    ```
-
-4. Run the app:
-
-    ```bash
-    python app.py [OPTIONS]
-    ```
-    See the Configuration section below for available options.
-
-5. Open your browser and visit [http://localhost:9292](http://localhost:9292)
 
 ### 🐳 Using Docker
 
@@ -102,8 +77,37 @@ If you have a copy of your `pihole-FTL.db` file, you can quickly run the dashboa
 
 4. Open your browser and visit [http://localhost:9292](http://localhost:9292)
 
-> [!WARNING]
-> Using your actual Pi-hole FTL db file for querying is **not** recommended. Place the copy in the project root or specify its path using the `--db_path` argument or `PIHOLE_LT_STATS_DB_PATH` environment variable. In any case, PiHoleLongTermStats does not monitor for changes in the Pi-hole FTL db file even if you mount it.
+### Using Python
+
+1. Clone this repository and move into the project folder:
+
+    ```bash
+    git clone https://github.com/davistdaniel/PiHoleLongTermStats.git
+    cd PiHoleLongTermStats
+    ```
+
+2. Install dependencies using pip:
+
+    ```bash
+    pip install -r requirements.txt
+    ```
+
+3. Make a copy/backup of your `pihole-FTL.db` (**Important!**) and place it in the PiHoleLongTermStats directory:
+    ```bash
+    # Example: Copy from the default Pi-hole location
+    sudo cp /etc/pihole/pihole-FTL.db . 
+    # Ensure the user running the app has read permissions
+    sudo chown $USER:$USER pihole-FTL.db 
+    ```
+
+4. Run the app:
+
+    ```bash
+    python app.py [OPTIONS]
+    ```
+    See the Configuration section below for available options.
+
+5. Open your browser and visit [http://localhost:9292](http://localhost:9292)
 
 ## ⚙️ Configuration
 
@@ -115,70 +119,43 @@ You can configure the application using command-line arguments or environment va
 | `--days DAYS`         | `PIHOLE_LT_STATS_DAYS`       | `31`           | Number of days of past data to analyze.          |
 | `--port PORT`         | `PIHOLE_LT_STATS_PORT`       | `9292`          | Port number to serve the Dash app on.            |
 
+## Supported metrics
+| Metric | Description |
+|--------|-------------|
+| Allowed Queries | Total number of queries that were allowed through the Pi-hole. |
+| Blocked Queries | Total number of queries that were blocked by the Pi-hole. |
+| Top Allowed Domain | The domain which was allowed the most |
+| Top Blocked Domain | The domain which was blocked the most |
+| Total Unique Clients | The total number of unique devices that made queries. |
+| Total Queries | Total number of queries processed by the Pi-hole. |
+| Highest number of queries were on | The date with the peak query count. |
+| Lowest number of queries were on | The date with the lowest query count. |
+| Average reply time | The average time it takes for the Pi-hole to respond to a query. |
+| Most Active Hour | The hour with the highest number of queries. |
+| Least Active Hour | The hour with the lowest number of queries. |
+| Most Active Day of the Week | The day with the highest query activity. |
+| Least Active Day of the Week | The day with the lowest query activity. |
+| Longest Blocking Streak | The longest consecutive period where queries were blocked. |
+| Longest Allowing Streak | The longest consecutive period where queries were allowed. |
+| Total queries during the day | Total number of queries made during daytime hours (06:00 to 23:59). |
+| Total queries during the night | Total number of queries made during nighttime hours. |
+| Top allowed domain during the day | The most allowed domain during the day. |
+| Top blocked domain during the day | The most blocked domain during the day. |
+| Top allowed domain during the night | The most allowed domain during the night. |
+| Top blocked domain during the night | The most blocked domain during the night. |
+| Most Persistent Client | The client that made the highest number of queries. |
+| Most Diverse Client | The client that queried a blocked domain the most times. |
+| Longest Idle Period | The longest period without any queries. |
+| Slowest Responding Domain | The domain with the highest average response time. |
+| Average Time Between Blocked Queries | Average interval between consecutive blocked queries. |
+| Average Time Between Allowed Queries | Average interval between consecutive allowed queries. |
 
-## 🔁 Optional: Auto-Restart Script
-You can use the following helper script to periodically refresh your Pi-hole FTL database and restart the dashboard container automatically using Docker Compose. 
-
-### auto_pihole_LT_stats.sh
-```bash
-#!/bin/bash
-
-APP_DIR="." # working directory with docker-compose.yml
-LOG_FILE="$APP_DIR/pihole_LT-stats.log"
-USER_NAME="yourusername" # replace with your actual system username
-
-# Time range in seconds, adjust to your liking
-# currently, it randomly chooses an update interval between MIN_SLEEP and MAX_SLEEP.
-MIN_SLEEP=$((1 * 24 * 3600))   # 1 day
-MAX_SLEEP=$((7 * 24 * 3600))   # 7 days
-
-while true; do
-  echo "[$(date)] Starting Pi-hole LT statistics dashboard via Docker Compose" | tee -a "$LOG_FILE"
-
-  # Copy DB
-  if cp /etc/pihole/pihole-FTL.db "$APP_DIR/pihole-FTL.db"; then
-    chown "$USER_NAME:$USER_NAME" "$APP_DIR/pihole-FTL.db"
-    echo "[$(date)] Copied pihole-FTL.db and updated ownership" | tee -a "$LOG_FILE"
-  else
-    echo "[$(date)] ERROR: Failed to copy pihole-FTL.db. Using existing database. Skipping container restart." | tee -a "$LOG_FILE"
-    continue
-  fi
-
-  # Stop and remove existing container
-  echo "[$(date)] Stopping existing container..." | tee -a "$LOG_FILE"
-  docker compose -f "$APP_DIR/docker-compose.yml" down >> "$LOG_FILE" 2>&1
-
-  # Start the container
-  echo "[$(date)] Starting container..." | tee -a "$LOG_FILE"
-  docker compose -f "$APP_DIR/docker-compose.yml" up -d >> "$LOG_FILE" 2>&1
-
-  echo "[$(date)] Container restarted via Docker Compose." | tee -a "$LOG_FILE"
-
-  # Generate random sleep duration
-  SLEEP_DURATION=$((RANDOM % (MAX_SLEEP - MIN_SLEEP + 1) + MIN_SLEEP))
-
-  HOURS=$((SLEEP_DURATION / 3600))
-  MINUTES=$(((SLEEP_DURATION % 3600) / 60))
-  NEXT_UPDATE_TIME=$(date -d "+$SLEEP_DURATION seconds" +"%Y-%m-%d %H:%M:%S")
-
-  echo "[$(date)] Sleeping for $HOURS hours and $MINUTES minutes. Next update at $NEXT_UPDATE_TIME." | tee -a "$LOG_FILE"
-
-  sleep "$SLEEP_DURATION"
-done
-```
-### Usage
-Make the script executable and run it: 
-```bash
-chmod +x auto_pihole_LT_stats.sh
-sudo ./auto_pihole_LT_stats.sh
-```
 
 ## 🧑‍💻 Contributing
 
-Feel free to fork and contribute! Feature ideas or bug fixes are always welcome.
+Any contribution, feature ideas or bug fixes are always welcome.
 
 ## 📄 License
 [MIT](LICENSE)
 
-## 📄 Disclaimer
-This is an unofficial, third-party project. The Pi Hole team and the development of Pi Hole software is not related to this project.
+
