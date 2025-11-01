@@ -44,4 +44,5 @@ jobs:
           tags: |
             ghcr.io/davistdaniel/piholelongtermstats:latest
             ghcr.io/davistdaniel/piholelongtermstats:${{ github.sha }}
+            ghcr.io/davistdaniel/piholelongtermstats:${{ github.ref_name }}
           labels: ${{ steps.meta.outputs.labels }}
