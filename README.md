@@ -23,7 +23,7 @@ A dashboard built with **Dash** and **Plotly** to explore long-term DNS query da
 
 ## 📦 Dependencies
 
-- Python 3.10 and above
+- Python 3.10 and above (pandas, dash and plotly are used.)
 - Pi-hole (> v.6) FTL database file (pihole-FTL.db)
 
 ## 🚀 Getting Started
@@ -31,10 +31,14 @@ A dashboard built with **Dash** and **Plotly** to explore long-term DNS query da
 There are multiple ways to run the dashboard: using Python or Docker.
 
 > [!WARNING]
-> Using your actual Pi-hole FTL db file for querying is **not** recommended and it is advised to use a copy. Place the copy in the project root or specify its path using the `--db_path` argument or `PIHOLE_LT_STATS_DB_PATH` environment variable. In any case, PiHoleLongTermStats does not monitor for changes in the Pi-hole FTL db file even if you mount it. PiHoleLongTermStats re-reads the Pi-hole FTL db file at the provided path and re-computes all the stats every time the page is reloaded or the reload button is clicked in the dashboard. 
+> Using your actual Pi-hole FTL db file for querying is **not** recommended and it is advised to use a copy. Place the copy in the project root or specify its path using the `--db_path` argument or `PIHOLE_LT_STATS_DB_PATH` environment variable. In any case, PiHoleLongTermStats does not monitor for changes in the Pi-hole FTL db file even if you mount it.
 
 > [!TIP]
-> You can set up a cron job to periodically copy the FTL database to the `db_path` `PIHOLE_LT_STATS_DB_PATH` location, ensuring your stats are updated without touching the live database. 
+> You can set up a cron job to periodically copy the FTL database to the `db_path` `PIHOLE_LT_STATS_DB_PATH` location, ensuring your stats are updated without touching the live database. Use the reload button in the dashboard to refresh the stats.
+
+> [!INFORMATION]
+> PiHoleLongTermStats reloads the Pi-hole FTL database and recalculates stats whenever the dashboard is refreshed or the reload button is clicked. If no date range is selected, it uses the default period set by `--days` or `PIHOLE_LT_STATS_DAYS`. Large data ranges may increase memory usage.
+
 
 
 ### 🐳 Using Docker

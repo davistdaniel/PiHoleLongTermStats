@@ -13,6 +13,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY app.py .
 COPY assets/style.css ./assets/
 COPY assets/logo_phlts.png ./assets/
+COPY LICENSE .
 
 # Run the app
 CMD ["python", "app.py"]
