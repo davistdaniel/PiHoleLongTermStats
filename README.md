@@ -36,7 +36,7 @@ There are multiple ways to run the dashboard: using Python or Docker.
 > [!TIP]
 > You can set up a cron job to periodically copy the FTL database to the `db_path` `PIHOLE_LT_STATS_DB_PATH` location, ensuring your stats are updated without touching the live database. Use the reload button in the dashboard to refresh the stats.
 
-> [!INFORMATION]
+> [!IMPORTANT]
 > PiHoleLongTermStats reloads the Pi-hole FTL database and recalculates stats whenever the dashboard is refreshed or the reload button is clicked. If no date range is selected, it uses the default period set by `--days` or `PIHOLE_LT_STATS_DAYS`. Large data ranges may increase memory usage.
 
 
