@@ -146,7 +146,7 @@ def generate_headings_data(sample_df, df):
     oldest_data_point = (
         f"{sample_df['timestamp'].iloc[0].strftime('%-d-%-m-%Y (%H:%M)')}"
     )
-    latest_data_point = f"{df['timestamp'].iloc[-1].strftime('%-d-%-m-%Y (%H:%M)')}"
+    # latest_data_point = f"{df['timestamp'].iloc[-1].strftime('%-d-%-m-%Y (%H:%M)')}"
     min_date = df["timestamp"].min().strftime("%-d-%-m-%Y (%H:%M)")
     max_date = df["timestamp"].max().strftime("%-d-%-m-%Y (%H:%M)")
     date_diff = df["timestamp"].max() - df["timestamp"].min()
@@ -161,7 +161,6 @@ def generate_headings_data(sample_df, df):
 
     return (
         oldest_data_point,
-        latest_data_point,
         min_date,
         max_date,
         data_span_days,
@@ -506,7 +505,6 @@ def serve_layout(db_path, days, start_date=None, end_date=None):
     df = process_timestamps(df)
     (
         oldest_data_point,
-        latest_data_point,
         min_date,
         max_date,
         data_span_days,
@@ -581,6 +579,7 @@ def serve_layout(db_path, days, start_date=None, end_date=None):
                         start_date_placeholder_text="Start",
                         end_date_placeholder_text="End",
                         className="date-picker-btn",
+                        max_date_allowed=datetime.today().date()
                     ),
                     html.Button(
                         "🔄",
