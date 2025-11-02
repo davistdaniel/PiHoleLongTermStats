@@ -14,6 +14,8 @@ import pandas as pd
 from dash import Dash, dcc, html, Input, Output, State
 from datetime import datetime, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
+
 
 # logging setup
 logging.basicConfig(
@@ -45,19 +47,38 @@ parser.add_argument(
     help="Port to serve the dash app at. Env: PIHOLE_LT_STATS_PORT",
 )
 
+parser.add_argument(
+    "--n_clients",
+    type=int,
+    default=int(os.getenv("PIHOLE_LT_STATS_NCLIENTS", 10)),
+    help="Number of top clients to show in top clients plots. Env: PIHOLE_LT_STATS_NCLIENTS",
+)
+
+parser.add_argument(
+    "--timezone",
+    type=str,
+    default=os.getenv("PIHOLE_LT_STATS_TIMEZONE", "UTC"),
+    help="Timezone for display (e.g., 'America/New_York', 'Europe/London'). Env: PIHOLE_LT_STATS_TIMEZONE",
+)
+
+
 args = parser.parse_args()
 
 ####### reading the database #######
+
 
 def connect_to_sql(db_path):
     """Connect to an SQL database"""
 
     if Path(db_path).is_file():
         conn = sqlite3.connect(db_path)
+        conn.text_factory = lambda b: b.decode(errors="replace")
         logging.info(f"Connected to SQL database at {db_path}")
         return conn
     else:
-        logging.error(f"Database file {db_path} not found. Please provide a valid path.")
+        logging.error(
+            f"Database file {db_path} not found. Please provide a valid path."
+        )
         raise FileNotFoundError(
             f"Database file {db_path} not found. Please provide a valid path."
         )
@@ -79,23 +100,36 @@ def calculate_chunk_size(conn):
 
     return sample_df, chunksize
 
-def read_pihole_ftl_db(conn, days=31, start_date=None, end_date=None, chunksize=None):
+
+def read_pihole_ftl_db(conn, days=31, start_date=None, end_date=None, chunksize=None,timezone="UTC"):
     """Read the PiHole FTL database lazily"""
+
+    try:
+        tz = ZoneInfo(timezone)
+    except Exception:
+        logging.warning(f"Invalid timezone '{timezone}', using UTC")
+        tz = ZoneInfo('UTC')
 
     if start_date is not None and end_date is not None:
         # if dates are selected, use them
         start_dt = datetime.strptime(start_date, "%Y-%m-%d")
-        end_dt = datetime.strptime(end_date, "%Y-%m-%d") + timedelta(
-            days=1
-        )  
+        end_dt = datetime.strptime(end_date, "%Y-%m-%d") + timedelta(days=1)
+
+        start_dt = start_dt.replace(tzinfo=tz)
+        end_dt = end_dt.replace(tzinfo=tz)
     else:
         # otherwise use default day given by days (or args.days)
-        end_dt = datetime.now()
+        end_dt = datetime.now(tz)
         start_dt = end_dt - timedelta(days=days)
 
-    logging.info(f"Loading data from PiHole-FTL database for the period ranging from {start_dt} to {end_dt}")
-    start_timestamp = int(start_dt.timestamp())
-    end_timestamp = int(end_dt.timestamp())
+    logging.info(
+        f"Loading data from PiHole-FTL database for the period ranging from {start_dt} to {end_dt}"
+    )
+    # start_timestamp = int(start_dt.timestamp())
+    # end_timestamp = int(end_dt.timestamp())
+
+    start_timestamp = int(start_dt.astimezone(ZoneInfo('UTC')).timestamp())
+    end_timestamp = int(end_dt.astimezone(ZoneInfo('UTC')).timestamp())
 
     query = f"""
     SELECT id, timestamp, type, status, domain, client, reply_time	 
@@ -114,14 +148,23 @@ def read_pihole_ftl_db(conn, days=31, start_date=None, end_date=None, chunksize=
 
 ####### data collection for cards and plots #######
 
+
 # basic time processing
-def process_timestamps(df):
+def process_timestamps(df,timezone="UTC"):
     """Convert timestamps in pandas dataframe of FTL database to date time."""
 
     logging.info("Processing timestamps...")
 
-    df["timestamp"] = pd.to_datetime(df["timestamp"], unit="s")
-    df["date"] = df["timestamp"].dt.normalize()
+    try:
+        tz = ZoneInfo(timezone)
+    except Exception as e:
+        logging.warning(f"Invalid timezone '{timezone}', falling back to UTC: {e}")
+        timezone = 'UTC'
+        tz = ZoneInfo('UTC')
+
+    df["timestamp"] = pd.to_datetime(df["timestamp"], unit="s", utc=True)
+    df["timestamp"] = df["timestamp"].dt.tz_convert(timezone)
+    df["date"] = df["timestamp"].dt.normalize()  # needed in group by operations
     df["hour"] = df["timestamp"].dt.hour
     df["day_period"] = df["hour"].apply(lambda h: "Day" if 6 <= h < 24 else "Night")
 
@@ -144,44 +187,76 @@ def process_timestamps(df):
 def compute_stats(df, sample_df):
     """Compute all statistics and return them as a dictionary"""
 
-    logging.info("Started computing stats...")    
+    logging.info("Started computing stats...")
     stats = {}
-    
+
     # data used for first heading
-    stats['oldest_data_point'] = f"{sample_df['timestamp'].iloc[0].strftime('%-d-%-m-%Y (%H:%M)')}"
-    stats['min_date'] = df["timestamp"].min().strftime("%-d-%-m-%Y (%H:%M)")
-    stats['max_date'] = df["timestamp"].max().strftime("%-d-%-m-%Y (%H:%M)")
+    stats["n_data_points"] = len(df)
+    stats["oldest_data_point"] = (
+        f"{sample_df['timestamp'].iloc[0].strftime('%-d-%-m-%Y (%H:%M)')}"
+    )
+    stats["min_date"] = df["timestamp"].min().strftime("%-d-%-m-%Y (%H:%M)")
+    stats["max_date"] = df["timestamp"].max().strftime("%-d-%-m-%Y (%H:%M)")
+
+    logging.info(f"Min and max dates : {stats["min_date"]},{stats["max_date"]}")
+
     date_diff = df["timestamp"].max() - df["timestamp"].min()
-    stats['data_span_days'] = date_diff.days
+    stats["data_span_days"] = date_diff.days
     hours = (date_diff.seconds // 3600) % 24
     minutes = (date_diff.seconds // 60) % 60
-    stats['data_span_str'] = f"{stats['data_span_days']}d,{hours}h and {minutes}min"
-    logging.info("Data for headings.Done.") 
-    
+    stats["data_span_str"] = f"{stats['data_span_days']}d,{hours}h and {minutes}min"
+    logging.info("Data for headings.Done.")
+
     # query stats
-    stats['total_queries'] = len(df)
-    stats['blocked_count'] = len(df[df["status_type"] == "Blocked"])
-    stats['allowed_count'] = len(df[df["status_type"] == "Allowed"])
-    stats['blocked_pct'] = (stats['blocked_count'] / stats['total_queries']) * 100
-    stats['allowed_pct'] = (stats['allowed_count'] / stats['total_queries']) * 100
-    logging.info("Data for query metrics.Done.") 
+    stats["total_queries"] = len(df)
+    stats["blocked_count"] = len(df[df["status_type"] == "Blocked"])
+    stats["allowed_count"] = len(df[df["status_type"] == "Allowed"])
+    stats["blocked_pct"] = (stats["blocked_count"] / stats["total_queries"]) * 100
+    stats["allowed_pct"] = (stats["allowed_count"] / stats["total_queries"]) * 100
+    logging.info("Data for query metrics.Done.")
 
     # top clients
-    stats['top_client'] = df["client"].value_counts().idxmax()
-    stats['top_allowed_client'] = df[df["status_type"] == "Allowed"]["client"].value_counts().idxmax()
-    stats['top_blocked_client'] = df[df["status_type"] == "Blocked"]["client"].value_counts().idxmax()
-    logging.info("Data for top clients.Done.") 
-    
+    stats["top_client"] = df["client"].value_counts().idxmax()
+    stats["top_allowed_client"] = (
+        df[df["status_type"] == "Allowed"]["client"].value_counts().idxmax()
+    )
+    stats["top_blocked_client"] = (
+        df[df["status_type"] == "Blocked"]["client"].value_counts().idxmax()
+    )
+    logging.info("Data for top clients.Done.")
+
     # domain stats
-    stats['top_allowed_domain'] = df[df["status_type"] == "Allowed"]["domain"].value_counts().idxmax()
-    stats['top_blocked_domain'] = df[df["status_type"] == "Blocked"]["domain"].value_counts().idxmax()
-    stats['top_allowed_domain_count'] = df[df["domain"] == stats['top_allowed_domain']].shape[0]
-    stats['top_blocked_domain_count'] = df[df["domain"] == stats['top_blocked_domain']].shape[0]
-    stats['top_allowed_domain_client'] = df[(df["status_type"] == "Allowed") & (df["domain"] == stats['top_allowed_domain'])]["client"].value_counts().idxmax()
-    stats['top_blocked_domain_client'] = df[(df["status_type"] == "Blocked") & (df["domain"] == stats['top_blocked_domain'])]["client"].value_counts().idxmax()
-    stats['unique_domains'] = df['domain'].nunique()
+    stats["top_allowed_domain"] = (
+        df[df["status_type"] == "Allowed"]["domain"].value_counts().idxmax()
+    )
+    stats["top_blocked_domain"] = (
+        df[df["status_type"] == "Blocked"]["domain"].value_counts().idxmax()
+    )
+    stats["top_allowed_domain_count"] = df[
+        df["domain"] == stats["top_allowed_domain"]
+    ].shape[0]
+    stats["top_blocked_domain_count"] = df[
+        df["domain"] == stats["top_blocked_domain"]
+    ].shape[0]
+    stats["top_allowed_domain_client"] = (
+        df[
+            (df["status_type"] == "Allowed")
+            & (df["domain"] == stats["top_allowed_domain"])
+        ]["client"]
+        .value_counts()
+        .idxmax()
+    )
+    stats["top_blocked_domain_client"] = (
+        df[
+            (df["status_type"] == "Blocked")
+            & (df["domain"] == stats["top_blocked_domain"])
+        ]["client"]
+        .value_counts()
+        .idxmax()
+    )
+    stats["unique_domains"] = df["domain"].nunique()
     logging.info("Data for domains.Done.")
-    
+
     # most persistent client despite being blocked
     blocked_df_c = df[df["status_type"] == "Blocked"]
     persistence = (
@@ -191,139 +266,232 @@ def compute_stats(df, sample_df):
         .sort_values("count", ascending=False)
     )
     most_persistent_row = persistence.iloc[0]
-    stats['most_persistent_client'] = most_persistent_row["client"]
-    stats['blocked_domain'] = most_persistent_row["domain"]
-    stats['repeat_attempts'] = most_persistent_row["count"]
+    stats["most_persistent_client"] = most_persistent_row["client"]
+    stats["blocked_domain"] = most_persistent_row["domain"]
+    stats["repeat_attempts"] = most_persistent_row["count"]
     logging.info("Data for most persistent client.Done.")
-    
+
     # activity stats based on date
     query_date_counts = df.groupby("date")["domain"].count()
-    blocked_date_counts = df[df["status_type"] == "Blocked"].groupby("date")["domain"].count()
-    allowed_date_counts = df[df["status_type"] == "Allowed"].groupby("date")["domain"].count()
-    stats['date_most_queries'] = query_date_counts.idxmax().strftime("%d %B %Y")
-    stats['date_most_blocked'] = blocked_date_counts.idxmax().strftime("%d %B %Y")
-    stats['date_most_allowed'] = allowed_date_counts.idxmax().strftime("%d %B %Y")
-    stats['date_least_queries'] = query_date_counts.idxmin().strftime("%d %B %Y")
-    stats['date_least_blocked'] = blocked_date_counts.idxmin().strftime("%d %B %Y")
-    stats['date_least_allowed'] = allowed_date_counts.idxmin().strftime("%d %B %Y")
+    blocked_date_counts = (
+        df[df["status_type"] == "Blocked"].groupby("date")["domain"].count()
+    )
+    allowed_date_counts = (
+        df[df["status_type"] == "Allowed"].groupby("date")["domain"].count()
+    )
+    stats["date_most_queries"] = query_date_counts.idxmax().strftime("%d %B %Y")
+    stats["date_most_blocked"] = blocked_date_counts.idxmax().strftime("%d %B %Y")
+    stats["date_most_allowed"] = allowed_date_counts.idxmax().strftime("%d %B %Y")
+    stats["date_least_queries"] = query_date_counts.idxmin().strftime("%d %B %Y")
+    stats["date_least_blocked"] = blocked_date_counts.idxmin().strftime("%d %B %Y")
+    stats["date_least_allowed"] = allowed_date_counts.idxmin().strftime("%d %B %Y")
     logging.info("Data for activity stats based on date.Done.")
-    
+
     # activity stats based on hour
     hourly_counts = df.groupby("hour").size()
-    stats['most_active_hour'] = hourly_counts.idxmax()
-    stats['least_active_hour'] = hourly_counts.idxmin()
-    stats['avg_queries_most'] = int(hourly_counts.max())
-    stats['avg_queries_least'] = int(hourly_counts.min())
+    stats["most_active_hour"] = hourly_counts.idxmax()
+    stats["least_active_hour"] = hourly_counts.idxmin()
+    stats["avg_queries_most"] = int(hourly_counts.max())
+    stats["avg_queries_least"] = int(hourly_counts.min())
     logging.info("Data for activity stats based on hour.Done.")
-    
+
     # activity stats based on day
-    daily_counts = df.groupby(["date", "day_name"]).size().reset_index(name="query_count")
-    avg = daily_counts.groupby("day_name")["query_count"].mean().sort_values(ascending=False)
-    stats['most_active_day'] = avg.idxmax()
-    stats['most_active_avg'] = int(avg.max())
-    stats['least_active_day'] = avg.idxmin()
-    stats['least_active_avg'] = int(avg.min())
+    daily_counts = (
+        df.groupby(["date", "day_name"]).size().reset_index(name="query_count")
+    )
+    avg = (
+        daily_counts.groupby("day_name")["query_count"]
+        .mean()
+        .sort_values(ascending=False)
+    )
+    stats["most_active_day"] = avg.idxmax()
+    stats["most_active_avg"] = int(avg.max())
+    stats["least_active_day"] = avg.idxmin()
+    stats["least_active_avg"] = int(avg.min())
     logging.info("Data for activity stats based on day.Done.")
-    
+
     # day-night stats
     day_df = df[df["day_period"] == "Day"]
     night_df = df[df["day_period"] == "Night"]
-    
-    stats['day_total_queries'] = len(day_df)
-    stats['day_top_client'] = day_df["client"].value_counts().idxmax()
-    stats['day_top_allowed_client'] = day_df[day_df["status_type"] == "Allowed"]["client"].value_counts().idxmax()
-    stats['day_top_blocked_client'] = day_df[day_df["status_type"] == "Blocked"]["client"].value_counts().idxmax()
-    stats['day_top_allowed_domain'] = day_df[day_df["status_type"] == "Allowed"]["domain"].value_counts().idxmax()
-    stats['day_top_blocked_domain'] = day_df[day_df["status_type"] == "Blocked"]["domain"].value_counts().idxmax()
-    stats['day_top_allowed_domain_count'] = day_df[day_df["domain"] == stats['day_top_allowed_domain']].shape[0]
-    stats['day_top_blocked_domain_count'] = day_df[day_df["domain"] == stats['day_top_blocked_domain']].shape[0]
-    stats['day_top_allowed_domain_client'] = day_df[(day_df["status_type"] == "Allowed") & (day_df["domain"] == stats['day_top_allowed_domain'])]["client"].value_counts().idxmax()
-    stats['day_top_blocked_domain_client'] = day_df[(day_df["status_type"] == "Blocked") & (day_df["domain"] == stats['day_top_blocked_domain'])]["client"].value_counts().idxmax()
-    
-    stats['night_total_queries'] = len(night_df)
-    stats['night_top_client'] = night_df["client"].value_counts().idxmax()
-    stats['night_top_allowed_client'] = night_df[night_df["status_type"] == "Allowed"]["client"].value_counts().idxmax()
-    stats['night_top_blocked_client'] = night_df[night_df["status_type"] == "Blocked"]["client"].value_counts().idxmax()
-    stats['night_top_allowed_domain'] = night_df[night_df["status_type"] == "Allowed"]["domain"].value_counts().idxmax()
-    stats['night_top_blocked_domain'] = night_df[night_df["status_type"] == "Blocked"]["domain"].value_counts().idxmax()
-    stats['night_top_allowed_domain_count'] = night_df[night_df["domain"] == stats['night_top_allowed_domain']].shape[0]
-    stats['night_top_blocked_domain_count'] = night_df[night_df["domain"] == stats['night_top_blocked_domain']].shape[0]
-    stats['night_top_allowed_domain_client'] = night_df[(night_df["status_type"] == "Allowed") & (night_df["domain"] == stats['night_top_allowed_domain'])]["client"].value_counts().idxmax()
-    stats['night_top_blocked_domain_client'] = night_df[(night_df["status_type"] == "Blocked") & (night_df["domain"] == stats['night_top_blocked_domain'])]["client"].value_counts().idxmax()
-    
+
+    stats["day_total_queries"] = len(day_df)
+    stats["day_top_client"] = day_df["client"].value_counts().idxmax()
+    stats["day_top_allowed_client"] = (
+        day_df[day_df["status_type"] == "Allowed"]["client"].value_counts().idxmax()
+    )
+    stats["day_top_blocked_client"] = (
+        day_df[day_df["status_type"] == "Blocked"]["client"].value_counts().idxmax()
+    )
+    stats["day_top_allowed_domain"] = (
+        day_df[day_df["status_type"] == "Allowed"]["domain"].value_counts().idxmax()
+    )
+    stats["day_top_blocked_domain"] = (
+        day_df[day_df["status_type"] == "Blocked"]["domain"].value_counts().idxmax()
+    )
+    stats["day_top_allowed_domain_count"] = day_df[
+        day_df["domain"] == stats["day_top_allowed_domain"]
+    ].shape[0]
+    stats["day_top_blocked_domain_count"] = day_df[
+        day_df["domain"] == stats["day_top_blocked_domain"]
+    ].shape[0]
+    stats["day_top_allowed_domain_client"] = (
+        day_df[
+            (day_df["status_type"] == "Allowed")
+            & (day_df["domain"] == stats["day_top_allowed_domain"])
+        ]["client"]
+        .value_counts()
+        .idxmax()
+    )
+    stats["day_top_blocked_domain_client"] = (
+        day_df[
+            (day_df["status_type"] == "Blocked")
+            & (day_df["domain"] == stats["day_top_blocked_domain"])
+        ]["client"]
+        .value_counts()
+        .idxmax()
+    )
+
+    stats["night_total_queries"] = len(night_df)
+    stats["night_top_client"] = night_df["client"].value_counts().idxmax()
+    stats["night_top_allowed_client"] = (
+        night_df[night_df["status_type"] == "Allowed"]["client"].value_counts().idxmax()
+    )
+    stats["night_top_blocked_client"] = (
+        night_df[night_df["status_type"] == "Blocked"]["client"].value_counts().idxmax()
+    )
+    stats["night_top_allowed_domain"] = (
+        night_df[night_df["status_type"] == "Allowed"]["domain"].value_counts().idxmax()
+    )
+    stats["night_top_blocked_domain"] = (
+        night_df[night_df["status_type"] == "Blocked"]["domain"].value_counts().idxmax()
+    )
+    stats["night_top_allowed_domain_count"] = night_df[
+        night_df["domain"] == stats["night_top_allowed_domain"]
+    ].shape[0]
+    stats["night_top_blocked_domain_count"] = night_df[
+        night_df["domain"] == stats["night_top_blocked_domain"]
+    ].shape[0]
+    stats["night_top_allowed_domain_client"] = (
+        night_df[
+            (night_df["status_type"] == "Allowed")
+            & (night_df["domain"] == stats["night_top_allowed_domain"])
+        ]["client"]
+        .value_counts()
+        .idxmax()
+    )
+    stats["night_top_blocked_domain_client"] = (
+        night_df[
+            (night_df["status_type"] == "Blocked")
+            & (night_df["domain"] == stats["night_top_blocked_domain"])
+        ]["client"]
+        .value_counts()
+        .idxmax()
+    )
+
     logging.info("Data for day and night stats.Done.")
 
     # allowed and blocked streaks
     df_sorted = df.sort_values("timestamp").copy()
     df_sorted["is_blocked"] = df_sorted["status_type"] == "Blocked"
     df_sorted["is_allowed"] = df_sorted["status_type"] == "Allowed"
-    df_sorted["blocked_group"] = (df_sorted["is_blocked"] != df_sorted["is_blocked"].shift()).cumsum()
-    df_sorted["allowed_group"] = (df_sorted["is_allowed"] != df_sorted["is_allowed"].shift()).cumsum()
+    df_sorted["blocked_group"] = (
+        df_sorted["is_blocked"] != df_sorted["is_blocked"].shift()
+    ).cumsum()
+    df_sorted["allowed_group"] = (
+        df_sorted["is_allowed"] != df_sorted["is_allowed"].shift()
+    ).cumsum()
     df_sorted["idle_gap"] = df_sorted["timestamp"].diff().dt.total_seconds()
-    
+
     blocked_groups = df_sorted[df_sorted["is_blocked"]].groupby("blocked_group")
     allowed_groups = df_sorted[df_sorted["is_allowed"]].groupby("allowed_group")
-    streaks_blocked = blocked_groups.agg(streak_length=("is_blocked", "size"), start_time=("timestamp", "first"))
-    streaks_allowed = allowed_groups.agg(streak_length=("is_allowed", "size"), start_time=("timestamp", "first"))
-    
-    longest_streak_blocked = streaks_blocked.loc[streaks_blocked["streak_length"].idxmax()]
-    stats['longest_streak_length_blocked'] = int(longest_streak_blocked["streak_length"])
-    stats['streak_date_blocked'] = longest_streak_blocked["start_time"].strftime("%d %B %Y")
-    stats['streak_hour_blocked'] = longest_streak_blocked["start_time"].strftime("%H:%M")
-    
-    longest_streak_allowed = streaks_allowed.loc[streaks_allowed["streak_length"].idxmax()]
-    stats['longest_streak_length_allowed'] = int(longest_streak_allowed["streak_length"])
-    stats['streak_date_allowed'] = longest_streak_allowed["start_time"].strftime("%d %B %Y")
-    stats['streak_hour_allowed'] = longest_streak_allowed["start_time"].strftime("%H:%M")
+    streaks_blocked = blocked_groups.agg(
+        streak_length=("is_blocked", "size"), start_time=("timestamp", "first")
+    )
+    streaks_allowed = allowed_groups.agg(
+        streak_length=("is_allowed", "size"), start_time=("timestamp", "first")
+    )
+
+    longest_streak_blocked = streaks_blocked.loc[
+        streaks_blocked["streak_length"].idxmax()
+    ]
+    stats["longest_streak_length_blocked"] = int(
+        longest_streak_blocked["streak_length"]
+    )
+    stats["streak_date_blocked"] = longest_streak_blocked["start_time"].strftime(
+        "%d %B %Y"
+    )
+    stats["streak_hour_blocked"] = longest_streak_blocked["start_time"].strftime(
+        "%H:%M"
+    )
+
+    longest_streak_allowed = streaks_allowed.loc[
+        streaks_allowed["streak_length"].idxmax()
+    ]
+    stats["longest_streak_length_allowed"] = int(
+        longest_streak_allowed["streak_length"]
+    )
+    stats["streak_date_allowed"] = longest_streak_allowed["start_time"].strftime(
+        "%d %B %Y"
+    )
+    stats["streak_hour_allowed"] = longest_streak_allowed["start_time"].strftime(
+        "%H:%M"
+    )
 
     logging.info("Data for streak stats.Done.")
 
-    
     # idle time stats
     max_idle_ms = df_sorted["idle_gap"].max()
     max_idle_idx = df_sorted["idle_gap"].idxmax()
-    
+
     blocked = df_sorted[df_sorted["status_type"] == "Blocked"]
     blocked_times = blocked["timestamp"].diff().dt.total_seconds().dropna()
     avg_time_between_blocked = blocked_times.mean() if not blocked_times.empty else None
-    
+
     allowed = df_sorted[df_sorted["status_type"] == "Allowed"]
     allowed_times = allowed["timestamp"].diff().dt.total_seconds().dropna()
     avg_time_between_allowed = allowed_times.mean() if not allowed_times.empty else None
-    
+
     before_gap = (
-        df_sorted.loc[max_idle_idx - 1, "timestamp"].strftime("%d-%b %Y %H:%M:%S.%f")[:-4]
+        df_sorted.loc[max_idle_idx - 1, "timestamp"].strftime("%d-%b %Y %H:%M:%S.%f")[
+            :-4
+        ]
         if max_idle_idx > 0
         else None
     )
-    after_gap = df_sorted.loc[max_idle_idx, "timestamp"].strftime("%d-%b %Y %H:%M:%S.%f")[:-4]
-    
-    stats['max_idle_ms'] = max_idle_ms
-    stats['avg_time_between_blocked'] = avg_time_between_blocked
-    stats['avg_time_between_allowed'] = avg_time_between_allowed
-    stats['before_gap'] = before_gap
-    stats['after_gap'] = after_gap
-    
+    after_gap = df_sorted.loc[max_idle_idx, "timestamp"].strftime(
+        "%d-%b %Y %H:%M:%S.%f"
+    )[:-4]
+
+    stats["max_idle_ms"] = max_idle_ms
+    stats["avg_time_between_blocked"] = avg_time_between_blocked
+    stats["avg_time_between_allowed"] = avg_time_between_allowed
+    stats["before_gap"] = before_gap
+    stats["after_gap"] = after_gap
+
     logging.info("Data for time stats.Done.")
-    
-    stats['unique_clients'] = df["client"].nunique()
-    diverse_client_df = df.groupby("client")["domain"].nunique().reset_index(name="unique_domains")
+
+    stats["unique_clients"] = df["client"].nunique()
+    diverse_client_df = (
+        df.groupby("client")["domain"].nunique().reset_index(name="unique_domains")
+    )
     diverse_client_df = diverse_client_df.sort_values("unique_domains", ascending=False)
-    stats['most_diverse_client'] = diverse_client_df.iloc[0]["client"]
-    stats['unique_domains_count'] = int(diverse_client_df.iloc[0]["unique_domains"])
-    
+    stats["most_diverse_client"] = diverse_client_df.iloc[0]["client"]
+    stats["unique_domains_count"] = int(diverse_client_df.iloc[0]["unique_domains"])
+
     # reply time stats
-    stats['avg_reply_time'] = round(df["reply_time"].dropna().abs().mean() * 1000, 3)
-    stats['max_reply_time'] = round(df["reply_time"].dropna().abs().max() * 1000, 3)
-    stats['min_reply_time'] = round(df["reply_time"].dropna().abs().min() * 1000, 3)
-    
+    stats["avg_reply_time"] = round(df["reply_time"].dropna().abs().mean() * 1000, 3)
+    stats["max_reply_time"] = round(df["reply_time"].dropna().abs().max() * 1000, 3)
+    stats["min_reply_time"] = round(df["reply_time"].dropna().abs().min() * 1000, 3)
+
     avg_reply_times = df.groupby("domain")["reply_time"].mean().reset_index()
-    slowest_domain_row = avg_reply_times.sort_values("reply_time", ascending=False).iloc[0]
-    stats['slowest_domain'] = slowest_domain_row["domain"]
-    stats['slowest_avg_reply_time'] = slowest_domain_row["reply_time"]
+    slowest_domain_row = avg_reply_times.sort_values(
+        "reply_time", ascending=False
+    ).iloc[0]
+    stats["slowest_domain"] = slowest_domain_row["domain"]
+    stats["slowest_avg_reply_time"] = slowest_domain_row["reply_time"]
 
     logging.info("Data for reply time stats.Done.")
-    
+
     logging.info("All stats computed.")
     # release some memory, testing if this is the memory leak
     del df_sorted, day_df, night_df, blocked_df_c, persistence
@@ -331,17 +499,17 @@ def compute_stats(df, sample_df):
     del blocked, allowed, diverse_client_df
     gc.collect()
     logging.info("Deleted dataframes which are no longer needed")
-    
+
     return stats
 
 
 def generate_plot_data(df):
     """Generate plot data separately to avoid keeping df references"""
-    
+
     logging.info("Generating plot data...")
-    
+
     # plot data for top clients
-    top_clients = df["client"].value_counts().nlargest(10).index
+    top_clients = df["client"].value_counts().nlargest(args.n_clients).index
     top_clients_stacked = (
         df[df["client"].isin(top_clients)]
         .groupby(["client", "status_type"])
@@ -359,7 +527,7 @@ def generate_plot_data(df):
     top_clients_stacked = top_clients_stacked.sort_values(
         ["client", "count"], ascending=[True, False]
     )
-    
+
     # plot data for allowed and blocked domains
     blocked_df = (
         df[df["status_type"] == "Blocked"]["domain"]
@@ -368,7 +536,7 @@ def generate_plot_data(df):
         .reset_index()
         .rename(columns={"index": "Count", "domain": "Domain"})
     )
-    
+
     allowed_df = (
         df[df["status_type"] == "Allowed"]["domain"]
         .value_counts()
@@ -376,7 +544,7 @@ def generate_plot_data(df):
         .reset_index()
         .rename(columns={"index": "Count", "domain": "Domain"})
     )
-    
+
     # plot data for reply time over days
     reply_time_df = (
         df.groupby("date")["reply_time"]
@@ -384,64 +552,87 @@ def generate_plot_data(df):
         .mul(1000)
         .reset_index(name="reply_time_ms")
     )
-    
+
     client_list = df["client"].unique().tolist()
-    
+
     logging.info("Plot data generation complete")
-    
+
     return {
-        'top_clients_stacked': top_clients_stacked,
-        'blocked_df': blocked_df,
-        'allowed_df': allowed_df,
-        'reply_time_df': reply_time_df,
-        'client_list': client_list,
-        'data_span_days': (df["timestamp"].max() - df["timestamp"].min()).days
+        "top_clients_stacked": top_clients_stacked,
+        "blocked_df": blocked_df,
+        "allowed_df": allowed_df,
+        "reply_time_df": reply_time_df,
+        "client_list": client_list,
+        "data_span_days": (df["timestamp"].max() - df["timestamp"].min()).days,
     }
 
 
-def serve_layout(db_path, days, start_date=None, end_date=None):
+def prepare_hourly_aggregated_data(df):
+    """Pre-aggregate data by hour"""
+    logging.info("Pre-aggregating data by hour for callbacks...")
+
+    # aggregate by hour, status_type, and client
+    hourly_agg = (
+        df.groupby([pd.Grouper(key="timestamp", freq="h"), "status_type", "client"])
+        .size()
+        .reset_index(name="count")
+    )
+
+    # get top n_clients clients for client activity view
+    top_clients = df["client"].value_counts().nlargest(args.n_clients).index.tolist()
+
+    logging.info("Hourly aggregation complete")
+    return {
+        "hourly_agg": hourly_agg,
+        "top_clients": top_clients,
+    }
+
+
+def serve_layout(db_path, days, start_date=None, end_date=None,timezone="UTC"):
     """Read pihole ftl db, process data, compute stats"""
-    
+    start_memory = psutil.virtual_memory().available
     conn = connect_to_sql(db_path)
     sample_df, chunksize = calculate_chunk_size(conn)
 
-    # making the the chunk into a list allows for deletion and possibly free up some memory.
-    chunks = list(read_pihole_ftl_db(
-                        conn,
-                        days=days,
-                        chunksize=chunksize,
-                        start_date=start_date,
-                        end_date=end_date,
-                    ))
-    df = pd.concat(chunks, ignore_index=True)
-    del chunks
-    gc.collect()
-    
+    df = pd.concat(
+        read_pihole_ftl_db(
+            conn,
+            days=days,
+            chunksize=chunksize,
+            start_date=start_date,
+            end_date=end_date,
+            timezone=timezone
+        ),
+        ignore_index=True,
+    )
+
     logging.info("Converted DB to a pandas dataframe")
 
     # should reduce some memory consumption
-    df["id"] = df["id"].astype('int32')
-    df["type"] = df["type"].astype('int8')
-    df["status"] = df["status"].astype('int8')
+    df["id"] = df["id"].astype("int32")
+    df["type"] = df["type"].astype("int8")
+    df["status"] = df["status"].astype("int8")
 
-    df = process_timestamps(df)
-    
+    df = process_timestamps(df, timezone=timezone)
+
     # compute the stats
     stats = compute_stats(df, sample_df)
-    
+
     # generate plot data
     plot_data = generate_plot_data(df)
-    
-    # data needed for callbacks
+
+    hourly_data = prepare_hourly_aggregated_data(df)
+
     callback_data = {
-        'df': df[['timestamp', 'status_type', 'client', 'date']].copy(),  # Only needed columns
-        'data_span_days': plot_data['data_span_days']
+        "hourly_agg": hourly_data["hourly_agg"],
+        "top_clients": hourly_data["top_clients"],
+        "data_span_days": plot_data["data_span_days"],
     }
-    
+
     # release major memory
-    del df
+    del df, hourly_data
     gc.collect()
-    
+
     layout = html.Div(
         [
             html.Div(
@@ -456,12 +647,12 @@ def serve_layout(db_path, days, start_date=None, end_date=None):
                     dcc.DatePickerRange(
                         id="date-picker-range",
                         display_format="DD-MM-YYYY",
-                        minimum_nights=0,
+                        minimum_nights=2,
                         start_date_placeholder_text="Start",
                         end_date_placeholder_text="End",
                         className="date-picker-btn",
-                        min_date_allowed=sample_df['timestamp'].iloc[0].date(),
-                        max_date_allowed=datetime.today().date()
+                        min_date_allowed=sample_df["timestamp"].iloc[0].date(),
+                        max_date_allowed=datetime.today().date(),
                     ),
                     html.Button(
                         "🔄",
@@ -482,10 +673,10 @@ def serve_layout(db_path, days, start_date=None, end_date=None):
             html.Div(
                 [
                     html.H5(
-                        f"Based on data from {stats['min_date']} to {stats['max_date']}, spanning {stats['data_span_str']}."
+                        f"Data from {stats['min_date']} to {stats['max_date']}, spanning {stats['data_span_str']} is shown."
                     ),
                     html.Br(),
-                    html.H6(f"Database records begin on {stats['oldest_data_point']}."),
+                    html.H6(f"Stats are based on {stats['n_data_points']} data points. Database records begin on {stats['oldest_data_point']}. Timezone: {timezone}"),
                 ],
                 className="sub-heading-card",
             ),
@@ -495,7 +686,9 @@ def serve_layout(db_path, days, start_date=None, end_date=None):
                     html.Div(
                         [
                             html.H3("Allowed Queries"),
-                            html.P(f"{stats['allowed_count']:,} ({stats['allowed_pct']:.1f}%)"),
+                            html.P(
+                                f"{stats['allowed_count']:,} ({stats['allowed_pct']:.1f}%)"
+                            ),
                             html.P(
                                 f"Top allowed client was {stats['top_allowed_client']}.",
                                 style={"fontSize": "14px", "color": "#777"},
@@ -506,7 +699,9 @@ def serve_layout(db_path, days, start_date=None, end_date=None):
                     html.Div(
                         [
                             html.H3("Blocked Queries"),
-                            html.P(f"{stats['blocked_count']:,} ({stats['blocked_pct']:.1f}%)"),
+                            html.P(
+                                f"{stats['blocked_count']:,} ({stats['blocked_pct']:.1f}%)"
+                            ),
                             html.P(
                                 f"Top blocked client was {stats['top_blocked_client']}.",
                                 style={"fontSize": "14px", "color": "#777"},
@@ -518,8 +713,8 @@ def serve_layout(db_path, days, start_date=None, end_date=None):
                         [
                             html.H3("Top Allowed Domain"),
                             html.P(
-                                stats['top_allowed_domain'],
-                                title=stats['top_allowed_domain'],
+                                stats["top_allowed_domain"],
+                                title=stats["top_allowed_domain"],
                                 style={
                                     "fontSize": "20px",
                                     "whiteSpace": "wrap",
@@ -538,8 +733,8 @@ def serve_layout(db_path, days, start_date=None, end_date=None):
                         [
                             html.H3("Top Blocked Domain"),
                             html.P(
-                                stats['top_blocked_domain'],
-                                title=stats['top_blocked_domain'],
+                                stats["top_blocked_domain"],
+                                title=stats["top_blocked_domain"],
                                 style={
                                     "fontSize": "20px",
                                     "whiteSpace": "wrap",
@@ -660,7 +855,7 @@ def serve_layout(db_path, days, start_date=None, end_date=None):
                             html.Div(
                                 [
                                     html.H3("Most Active Day of the Week"),
-                                    html.P(stats['most_active_day']),
+                                    html.P(stats["most_active_day"]),
                                     html.P(
                                         f"On average, {stats['most_active_avg']:,} queries are made on this day.",
                                         style={"fontSize": "14px", "color": "#777"},
@@ -672,7 +867,7 @@ def serve_layout(db_path, days, start_date=None, end_date=None):
                             html.Div(
                                 [
                                     html.H3("Least Active Day of the Week"),
-                                    html.P(stats['least_active_day']),
+                                    html.P(stats["least_active_day"]),
                                     html.P(
                                         f"On average, {stats['least_active_avg']:,} queries are made on this day.",
                                         style={"fontSize": "14px", "color": "#777"},
@@ -746,7 +941,7 @@ def serve_layout(db_path, days, start_date=None, end_date=None):
                                     html.H3("Top allowed domain during the day"),
                                     html.P(
                                         f"{stats['day_top_allowed_domain']}",
-                                        title=stats['day_top_allowed_domain'],
+                                        title=stats["day_top_allowed_domain"],
                                         style={
                                             "fontSize": "18px",
                                             "whiteSpace": "wrap",
@@ -767,7 +962,7 @@ def serve_layout(db_path, days, start_date=None, end_date=None):
                                     html.H3("Top blocked domain during the day"),
                                     html.P(
                                         f"{stats['day_top_blocked_domain']}",
-                                        title=stats['day_top_blocked_domain'],
+                                        title=stats["day_top_blocked_domain"],
                                         style={
                                             "fontSize": "18px",
                                             "whiteSpace": "wrap",
@@ -788,7 +983,7 @@ def serve_layout(db_path, days, start_date=None, end_date=None):
                                     html.H3("Top allowed domain during the night"),
                                     html.P(
                                         f"{stats['night_top_allowed_domain']}",
-                                        title=stats['night_top_allowed_domain'],
+                                        title=stats["night_top_allowed_domain"],
                                         style={
                                             "fontSize": "18px",
                                             "whiteSpace": "wrap",
@@ -809,7 +1004,7 @@ def serve_layout(db_path, days, start_date=None, end_date=None):
                                     html.H3("Top blocked domain during the night"),
                                     html.P(
                                         f"{stats['night_top_blocked_domain']}",
-                                        title=stats['night_top_blocked_domain'],
+                                        title=stats["night_top_blocked_domain"],
                                         style={
                                             "fontSize": "18px",
                                             "whiteSpace": "wrap",
@@ -874,7 +1069,7 @@ def serve_layout(db_path, days, start_date=None, end_date=None):
                                     html.H3("Slowest Responding Domain"),
                                     html.P(
                                         f"{stats['slowest_domain']}",
-                                        title=stats['slowest_domain'],
+                                        title=stats["slowest_domain"],
                                         style={
                                             "fontSize": "18px",
                                             "whiteSpace": "wrap",
@@ -895,7 +1090,7 @@ def serve_layout(db_path, days, start_date=None, end_date=None):
                                     html.H3("Average Time Between Blocked Queries"),
                                     html.P(
                                         f"{stats['avg_time_between_blocked']:.2f} s"
-                                        if stats['avg_time_between_blocked']
+                                        if stats["avg_time_between_blocked"]
                                         else "N/A"
                                     ),
                                     html.P(
@@ -911,7 +1106,7 @@ def serve_layout(db_path, days, start_date=None, end_date=None):
                                     html.H3("Average Time Between Allowed Queries"),
                                     html.P(
                                         f"{stats['avg_time_between_allowed']:.2f} s"
-                                        if stats['avg_time_between_allowed']
+                                        if stats["avg_time_between_allowed"]
                                         else "N/A"
                                     ),
                                     html.P(
@@ -928,36 +1123,20 @@ def serve_layout(db_path, days, start_date=None, end_date=None):
                 className="kpi-container",
             ),
             html.Br(),
-            # time series
-            html.H2("Queries over time"),
             html.Div(
                 [
+                    html.H2("Queries over time"),
+                    html.H5("Aggregated hourly"),
                     dcc.Dropdown(
                         options=[
-                            {"label": c, "value": c} for c in plot_data['client_list']
+                            {"label": c, "value": c} for c in plot_data["client_list"]
                         ],
                         id="client-filter",
                         placeholder="Select a Client",
                     ),
-                    dcc.Dropdown(
-                        options=[
-                            {"label": "Hours", "value": "h"},
-                            {
-                                "label": "Months",
-                                "value": "ME",
-                                "disabled": plot_data['data_span_days'] < 31,
-                            },
-                            {
-                                "label": "Years",
-                                "value": "YE",
-                                "disabled": plot_data['data_span_days'] < 365,
-                            },
-                        ],
-                        id="freq-filter",
-                        placeholder="Frequency",
-                    ),
                     dcc.Graph(id="filtered-view"),
-                    html.H2("Top Client Activity Over Time"),
+                    html.H2("Client Activity Over Time"),
+                    html.H5("Aggregated hourly"),
                     dcc.Graph(id="client-activity-view"),
                 ],
                 className="cardplot",
@@ -971,7 +1150,7 @@ def serve_layout(db_path, days, start_date=None, end_date=None):
                             dcc.Graph(
                                 id="top-blocked-domains",
                                 figure=px.bar(
-                                    plot_data['blocked_df'],
+                                    plot_data["blocked_df"],
                                     x="Domain",
                                     y="count",
                                     labels={
@@ -980,7 +1159,20 @@ def serve_layout(db_path, days, start_date=None, end_date=None):
                                     },
                                     template="plotly_white",
                                     color_discrete_sequence=["#ef4444"],
-                                ).update_layout(showlegend=False),
+                                ).update_layout(
+                                    showlegend=False,
+                                    xaxis_tickangle=30,
+                                    xaxis=dict(
+                                        tickmode="array",
+                                        tickvals=plot_data["blocked_df"]["Domain"],
+                                        ticktext=[
+                                            d
+                                            if len(d) <= 40
+                                            else d[:15] + "…" + d[-15:]
+                                            for d in plot_data["blocked_df"]["Domain"]
+                                        ],
+                                    ),
+                                ),
                             ),
                         ],
                         className="cardplot",
@@ -991,7 +1183,7 @@ def serve_layout(db_path, days, start_date=None, end_date=None):
                             dcc.Graph(
                                 id="top-allowed-domains",
                                 figure=px.bar(
-                                    plot_data['allowed_df'],
+                                    plot_data["allowed_df"],
                                     x="Domain",
                                     y="count",
                                     labels={
@@ -1000,7 +1192,20 @@ def serve_layout(db_path, days, start_date=None, end_date=None):
                                     },
                                     template="plotly_white",
                                     color_discrete_sequence=["#10b981"],
-                                ).update_layout(showlegend=False),
+                                ).update_layout(
+                                    showlegend=False,
+                                    xaxis_tickangle=30,
+                                    xaxis=dict(
+                                        tickmode="array",
+                                        tickvals=plot_data["allowed_df"]["Domain"],
+                                        ticktext=[
+                                            d
+                                            if len(d) <= 40
+                                            else d[:15] + "…" + d[-15:]
+                                            for d in plot_data["allowed_df"]["Domain"]
+                                        ],
+                                    ),
+                                ),
                             ),
                         ],
                         className="cardplot",
@@ -1009,13 +1214,13 @@ def serve_layout(db_path, days, start_date=None, end_date=None):
                 className="row",
             ),
             html.Br(),
-            html.H2("Top Client Activity"),
             html.Div(
                 [
+                    html.H2("Top Client Activity"),
                     dcc.Graph(
                         id="top-clients",
                         figure=px.bar(
-                            plot_data['top_clients_stacked'],
+                            plot_data["top_clients_stacked"],
                             x="client",
                             y="count",
                             labels={
@@ -1032,7 +1237,9 @@ def serve_layout(db_path, days, start_date=None, end_date=None):
                                 "Other": "#b99529",
                             },
                             template="plotly_white",
-                        ),
+                        ).update_layout(
+        legend=dict(orientation="h", yanchor="top", y=-0.2, xanchor="center", x=0.5)
+    ),
                     ),
                 ],
                 className="cardplot",
@@ -1046,7 +1253,7 @@ def serve_layout(db_path, days, start_date=None, end_date=None):
                             dcc.Graph(
                                 id="avg-reply-time",
                                 figure=px.line(
-                                    plot_data['reply_time_df'],
+                                    plot_data["reply_time_df"],
                                     x="date",
                                     y="reply_time_ms",
                                     labels={
@@ -1067,18 +1274,20 @@ def serve_layout(db_path, days, start_date=None, end_date=None):
         ],
         className="container",
     )
-    
+    logging.info(
+        f"Memory used while serving layout: {(start_memory - psutil.virtual_memory().available) / (1024.0**3)}"
+    )
     return callback_data, layout
 
 
 ####### Intializing the app #######
 
 logging.info("Initializing Dash app")
-app = Dash(__name__)
+app = Dash("PiHoleLongTermStats")
 app.title = "PiHoleLongTermStats"
 
 # Initialize with data
-PIHOLE_FTL_DF, initial_layout = serve_layout(args.db_path, args.days)
+PIHOLE_FTL_DF, initial_layout = serve_layout(args.db_path, args.days,timezone=args.timezone)
 
 app.layout = html.Div(
     [
@@ -1088,7 +1297,9 @@ app.layout = html.Div(
             fullscreen=True,
             children=[
                 html.Div(
-                    id="page-container", children=initial_layout.children, className="container"
+                    id="page-container",
+                    children=initial_layout.children,
+                    className="container",
                 )
             ],
         )
@@ -1105,47 +1316,40 @@ app.layout = html.Div(
 )
 def reload_page(n_clicks, start_date, end_date):
     global PIHOLE_FTL_DF
-    
+
     logging.info(f"Reload button clicked. Date range: {start_date, end_date}")
-    
-    # delete any previous df, testing for memory leak
-    if PIHOLE_FTL_DF is not None:
-        del PIHOLE_FTL_DF
-        gc.collect()
-    
+
     PIHOLE_FTL_DF, layout = serve_layout(
-        args.db_path, args.days, start_date=start_date, end_date=end_date
+        args.db_path, args.days, start_date=start_date, end_date=end_date, timezone=args.timezone
     )
-    
+
     return layout.children
 
 
 @app.callback(
     Output("filtered-view", "figure"),
     Input("client-filter", "value"),
-    Input("freq-filter", "value"),
     Input("reload-button", "n_clicks"),
 )
-def update_filtered_view(client, freq, n_clicks):
+def update_filtered_view(client, n_clicks):
     global PIHOLE_FTL_DF
 
-    if not client:
-        dff = PIHOLE_FTL_DF['df']
+    dff_grouped = PIHOLE_FTL_DF["hourly_agg"].copy()
+
+    if client:
+        dff_grouped = dff_grouped[dff_grouped["client"] == client]
+        title_text = f"DNS Queries Over Time for {client}"
     else:
-        dff = PIHOLE_FTL_DF['df'][PIHOLE_FTL_DF['df']["client"] == client]
-
-    if not freq:
-        freq = "h"
-
-    dff_grouped = (
-        dff.groupby([pd.Grouper(key="timestamp", freq=freq), "status_type"])
-        .size()
-        .reset_index(name="count")
-    )
+        dff_grouped = (
+            dff_grouped.groupby(["timestamp", "status_type"])["count"]
+            .sum()
+            .reset_index()
+        )
+        title_text = "DNS Queries Over Time for All Clients"
 
     # Fill missing data with 0
     all_times = pd.date_range(
-        dff_grouped["timestamp"].min(), dff_grouped["timestamp"].max(), freq=freq
+        dff_grouped["timestamp"].min(), dff_grouped["timestamp"].max(), freq="h"
     )
     status_types = ["Other", "Allowed", "Blocked"]
     full_index = pd.MultiIndex.from_product(
@@ -1167,7 +1371,7 @@ def update_filtered_view(client, freq, n_clicks):
         y="count",
         color="status_type",
         line_group="status_type",
-        title=f"DNS Queries Over Time for {client or 'All Clients'}",
+        title=title_text,
         color_discrete_map={
             "Allowed": "#10b981",
             "Blocked": "#ef4444",
@@ -1184,56 +1388,66 @@ def update_filtered_view(client, freq, n_clicks):
         stackgroup="one",
     )
 
+    fig.update_layout(
+        legend=dict(orientation="h", yanchor="top", y=-0.2, xanchor="center", x=0.5)
+    )
+
+    del dff_grouped
+    gc.collect()
+
     return fig
 
 
 @app.callback(
     Output("client-activity-view", "figure"),
     Input("client-filter", "value"),
-    Input("freq-filter", "value"),
     Input("reload-button", "n_clicks"),
 )
-def update_client_activity(client, freq, n_clicks):
+def update_client_activity(client, n_clicks):
     global PIHOLE_FTL_DF
 
-    if not client:
-        dff = PIHOLE_FTL_DF['df']
+    dff_grouped = PIHOLE_FTL_DF["hourly_agg"].copy()
+    top_clients = PIHOLE_FTL_DF["top_clients"]
+
+    logging.info(f"Number of clients : {len(top_clients)}")
+
+    if client:
+        dff_grouped = dff_grouped[dff_grouped["client"] == client]
+        dff_grouped = (
+            dff_grouped.groupby(["timestamp", "client"])["count"].sum().reset_index()
+        )
+        title_text = f"Activity for {client}"
+        clients_to_show = [client]
     else:
-        dff = PIHOLE_FTL_DF['df'][PIHOLE_FTL_DF['df']["client"] == client]
+        dff_grouped = dff_grouped[dff_grouped["client"].isin(top_clients)]
+        dff_grouped = (
+            dff_grouped.groupby(["timestamp", "client"])["count"].sum().reset_index()
+        )
+        title_text = f"Activity for top {args.n_clients} clients"
+        clients_to_show = top_clients
 
-    if not freq:
-        freq = "h"
-
-    top_clients = dff.groupby("client").size().nlargest(10).index
-    dff_top = dff[dff["client"].isin(top_clients)]
-    dff_grouped = (
-        dff_top.groupby([pd.Grouper(key="timestamp", freq=freq), "client"])
-        .size()
-        .reset_index(name="count")
-    )
-
-    # Fill missing data with no client activity with zero.
     all_times = pd.date_range(
-        dff_grouped["timestamp"].min(), dff_grouped["timestamp"].max(), freq=freq
+        dff_grouped["timestamp"].min(), dff_grouped["timestamp"].max(), freq="h"
+    )
+    full_index = pd.MultiIndex.from_product(
+        [all_times, clients_to_show], names=["timestamp", "client"]
     )
     pivot_df = (
-        dff_grouped.pivot(index="timestamp", columns="client", values="count")
-        .reindex(all_times)
-        .fillna(0)
+        dff_grouped.set_index(["timestamp", "client"])
+        .reindex(full_index, fill_value=0)
         .reset_index()
-        .rename(columns={"index": "timestamp"})
     )
-    mod_df = pivot_df.melt(id_vars="timestamp", var_name="client", value_name="count")
 
     default_colors = px.colors.qualitative.Plotly
     client_color_map = dict(zip(top_clients, itertools.cycle(default_colors)))
 
     fig = px.area(
-        mod_df,
+        pivot_df,
         x="timestamp",
         y="count",
         color="client",
         line_group="client",
+        title=title_text,
         color_discrete_map=client_color_map,
         template="plotly_white",
         labels={"timestamp": "Date", "count": "Count", "client": "Client IP"},
@@ -1246,6 +1460,13 @@ def update_client_activity(client, freq, n_clicks):
         stackgroup="one",
         connectgaps=False,
     )
+
+    fig.update_layout(
+        legend=dict(orientation="h", yanchor="top", y=-0.3, xanchor="center", x=0.5)
+    )
+
+    del dff_grouped, pivot_df
+    gc.collect()
 
     return fig
 
