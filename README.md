@@ -23,7 +23,7 @@ A dashboard built with **Dash** and **Plotly** to explore long-term DNS query da
 
 ## 📦 Dependencies
 
-- Python 3.10 and above (pandas, dash and plotly are used.)
+- Python 3.10. See `requirements.txt` for dependencies.
 - Pi-hole (> v.6) FTL database file (pihole-FTL.db)
 
 ## 🚀 Getting Started
