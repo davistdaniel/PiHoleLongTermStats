@@ -1,4 +1,4 @@
-# Pi Hole Long Term Statistics v.0.1.1
+# Pi Hole Long Term Statistics v.0.1.2
 
 A dashboard built with **Dash** and **Plotly** to explore long-term DNS query data from a **Pi-hole v.6** FTL database file. Visualize allowed vs blocked domains, top clients, and query trends over time. If you find this project helpful, please consider giving it a ⭐ to show your support.
 
@@ -71,8 +71,10 @@ If you have a copy of your `pihole-FTL.db` file, you can quickly run the dashboa
           - ./pihole-FTL.db:/app/pihole-FTL.db:ro  # Path to your Pi-hole DB file (adjust if it's not in current directory)
         environment:
           - PIHOLE_LT_STATS_DB_PATH=/app/pihole-FTL.db  # Path inside the container to the mounted DB file
-          - PIHOLE_LT_STATS_DAYS=31                    # Number of days of data to analyze; change if desired
+          - PIHOLE_LT_STATS_DAYS=31                   # Number of days of data to analyze; change if desired
           - PIHOLE_LT_STATS_PORT=9292                   # Port the app listens to inside container; keep in sync with ports mapping
+          - PIHOLE_LT_STATS_NCLIENTS=10                 # Number of clients to show in top clients plots
+          - PIHOLE_LT_STATS_TIMEZONE="UTC"              # timezone for display
         restart: unless-stopped
     ```
     and run using :
@@ -122,7 +124,7 @@ You can configure the application using command-line arguments or environment va
 | Command-Line Argument | Environment Variable         | Default Value   | Description                                      |
 |-----------------------|------------------------------|-----------------|--------------------------------------------------|
 | `--db_path PATH`      | `PIHOLE_LT_STATS_DB_PATH`    | `pihole-FTL.db` | Path to the copied Pi-hole database file.        |
-| `--days DAYS`         | `PIHOLE_LT_STATS_DAYS`       | `31`           | Number of days of past data to analyze.          |
+| `--days DAYS`         | `PIHOLE_LT_STATS_DAYS`       | `31`           | Number of days back from today to analyze.          |
 | `--port PORT`         | `PIHOLE_LT_STATS_PORT`       | `9292`          | Port number to serve the Dash app on.            |
 | `--n_clients N_CLIENTS`         | `PIHOLE_LT_STATS_NCLIENTS`       | `10`          | Number of top clients to show in top clients plots.            |
 | `--port TIMEZONE`         | `PIHOLE_LT_STATS_TIMEZONE`       | `UTC`          | Timezone for displaying times in the dashboard.            |

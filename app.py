@@ -66,6 +66,12 @@ args = parser.parse_args()
 
 ####### reading the database #######
 
+logging.info(f"PIHOLE_LT_STATS_DAYS : {args.days}")
+logging.info(f"PIHOLE_LT_STATS_DB_PATH : {args.db_path}")
+logging.info(f"PIHOLE_LT_STATS_PORT : {args.port}")
+logging.info(f"PIHOLE_LT_STATS_NCLIENTS : {args.n_clients}")
+logging.info(f"PIHOLE_LT_STATS_TIMEZONE : {args.timezone}")
+
 
 def connect_to_sql(db_path):
     """Connect to an SQL database"""
@@ -101,17 +107,20 @@ def calculate_chunk_size(conn):
     return sample_df, chunksize
 
 
-def read_pihole_ftl_db(conn, days=31, start_date=None, end_date=None, chunksize=None,timezone="UTC"):
+def read_pihole_ftl_db(
+    conn, days=31, start_date=None, end_date=None, chunksize=None, timezone="UTC"
+):
     """Read the PiHole FTL database lazily"""
 
     try:
         tz = ZoneInfo(timezone)
     except Exception:
         logging.warning(f"Invalid timezone '{timezone}', using UTC")
-        tz = ZoneInfo('UTC')
+        tz = ZoneInfo("UTC")
 
     if start_date is not None and end_date is not None:
         # if dates are selected, use them
+        logging.info("A date range was selected.")
         start_dt = datetime.strptime(start_date, "%Y-%m-%d")
         end_dt = datetime.strptime(end_date, "%Y-%m-%d") + timedelta(days=1)
 
@@ -119,6 +128,7 @@ def read_pihole_ftl_db(conn, days=31, start_date=None, end_date=None, chunksize=
         end_dt = end_dt.replace(tzinfo=tz)
     else:
         # otherwise use default day given by days (or args.days)
+        logging.info("A date range was not selected. Using default number of days.")
         end_dt = datetime.now(tz)
         start_dt = end_dt - timedelta(days=days)
 
@@ -128,8 +138,8 @@ def read_pihole_ftl_db(conn, days=31, start_date=None, end_date=None, chunksize=
     # start_timestamp = int(start_dt.timestamp())
     # end_timestamp = int(end_dt.timestamp())
 
-    start_timestamp = int(start_dt.astimezone(ZoneInfo('UTC')).timestamp())
-    end_timestamp = int(end_dt.astimezone(ZoneInfo('UTC')).timestamp())
+    start_timestamp = int(start_dt.astimezone(ZoneInfo("UTC")).timestamp())
+    end_timestamp = int(end_dt.astimezone(ZoneInfo("UTC")).timestamp())
 
     query = f"""
     SELECT id, timestamp, type, status, domain, client, reply_time	 
@@ -150,17 +160,17 @@ def read_pihole_ftl_db(conn, days=31, start_date=None, end_date=None, chunksize=
 
 
 # basic time processing
-def process_timestamps(df,timezone="UTC"):
+def process_timestamps(df, timezone="UTC"):
     """Convert timestamps in pandas dataframe of FTL database to date time."""
 
     logging.info("Processing timestamps...")
 
     try:
-        tz = ZoneInfo(timezone)
+        tz = ZoneInfo(timezone)  # noqa: F841
     except Exception as e:
         logging.warning(f"Invalid timezone '{timezone}', falling back to UTC: {e}")
-        timezone = 'UTC'
-        tz = ZoneInfo('UTC')
+        timezone = "UTC"
+        # tz = ZoneInfo('UTC')
 
     df["timestamp"] = pd.to_datetime(df["timestamp"], unit="s", utc=True)
     df["timestamp"] = df["timestamp"].dt.tz_convert(timezone)
@@ -198,7 +208,7 @@ def compute_stats(df, sample_df):
     stats["min_date"] = df["timestamp"].min().strftime("%-d-%-m-%Y (%H:%M)")
     stats["max_date"] = df["timestamp"].max().strftime("%-d-%-m-%Y (%H:%M)")
 
-    logging.info(f"Min and max dates : {stats["min_date"]},{stats["max_date"]}")
+    logging.info(f"Min and max dates : {stats['min_date']},{stats['max_date']}")
 
     date_diff = df["timestamp"].max() - df["timestamp"].min()
     stats["data_span_days"] = date_diff.days
@@ -588,7 +598,7 @@ def prepare_hourly_aggregated_data(df):
     }
 
 
-def serve_layout(db_path, days, start_date=None, end_date=None,timezone="UTC"):
+def serve_layout(db_path, days, start_date=None, end_date=None, timezone="UTC"):
     """Read pihole ftl db, process data, compute stats"""
     start_memory = psutil.virtual_memory().available
     conn = connect_to_sql(db_path)
@@ -601,7 +611,7 @@ def serve_layout(db_path, days, start_date=None, end_date=None,timezone="UTC"):
             chunksize=chunksize,
             start_date=start_date,
             end_date=end_date,
-            timezone=timezone
+            timezone=timezone,
         ),
         ignore_index=True,
     )
@@ -673,10 +683,12 @@ def serve_layout(db_path, days, start_date=None, end_date=None,timezone="UTC"):
             html.Div(
                 [
                     html.H5(
-                        f"Data from {stats['min_date']} to {stats['max_date']}, spanning {stats['data_span_str']} is shown."
+                        f"Data from {stats['min_date']} to {stats['max_date']}, spanning {stats['data_span_str']} is shown. Stats are based on {stats['n_data_points']} data points. "
                     ),
                     html.Br(),
-                    html.H6(f"Stats are based on {stats['n_data_points']} data points. Database records begin on {stats['oldest_data_point']}. Timezone: {timezone}"),
+                    html.H6(
+                        f"Timezone is {timezone}. Database records begin on {stats['oldest_data_point']}."
+                    ),
                 ],
                 className="sub-heading-card",
             ),
@@ -1238,8 +1250,14 @@ def serve_layout(db_path, days, start_date=None, end_date=None,timezone="UTC"):
                             },
                             template="plotly_white",
                         ).update_layout(
-        legend=dict(orientation="h", yanchor="top", y=-0.2, xanchor="center", x=0.5)
-    ),
+                            legend=dict(
+                                orientation="h",
+                                yanchor="top",
+                                y=-0.4,
+                                xanchor="center",
+                                x=0.5,
+                            )
+                        ),
                     ),
                 ],
                 className="cardplot",
@@ -1287,7 +1305,9 @@ app = Dash("PiHoleLongTermStats")
 app.title = "PiHoleLongTermStats"
 
 # Initialize with data
-PIHOLE_FTL_DF, initial_layout = serve_layout(args.db_path, args.days,timezone=args.timezone)
+PIHOLE_FTL_DF, initial_layout = serve_layout(
+    args.db_path, args.days, timezone=args.timezone
+)
 
 app.layout = html.Div(
     [
@@ -1320,7 +1340,11 @@ def reload_page(n_clicks, start_date, end_date):
     logging.info(f"Reload button clicked. Date range: {start_date, end_date}")
 
     PIHOLE_FTL_DF, layout = serve_layout(
-        args.db_path, args.days, start_date=start_date, end_date=end_date, timezone=args.timezone
+        args.db_path,
+        args.days,
+        start_date=start_date,
+        end_date=end_date,
+        timezone=args.timezone,
     )
 
     return layout.children
@@ -1332,11 +1356,13 @@ def reload_page(n_clicks, start_date, end_date):
     Input("reload-button", "n_clicks"),
 )
 def update_filtered_view(client, n_clicks):
+    logging.info("Updating Queries over time plot...")
     global PIHOLE_FTL_DF
 
     dff_grouped = PIHOLE_FTL_DF["hourly_agg"].copy()
 
     if client:
+        logging.info(f"Selected client : {client}")
         dff_grouped = dff_grouped[dff_grouped["client"] == client]
         title_text = f"DNS Queries Over Time for {client}"
     else:
@@ -1389,7 +1415,7 @@ def update_filtered_view(client, n_clicks):
     )
 
     fig.update_layout(
-        legend=dict(orientation="h", yanchor="top", y=-0.2, xanchor="center", x=0.5)
+        legend=dict(orientation="h", yanchor="top", y=-0.4, xanchor="center", x=0.5)
     )
 
     del dff_grouped
@@ -1404,6 +1430,7 @@ def update_filtered_view(client, n_clicks):
     Input("reload-button", "n_clicks"),
 )
 def update_client_activity(client, n_clicks):
+    logging.info("Updating Client activity over time plot...")
     global PIHOLE_FTL_DF
 
     dff_grouped = PIHOLE_FTL_DF["hourly_agg"].copy()
@@ -1412,6 +1439,7 @@ def update_client_activity(client, n_clicks):
     logging.info(f"Number of clients : {len(top_clients)}")
 
     if client:
+        logging.info(f"Selected client : {client}")
         dff_grouped = dff_grouped[dff_grouped["client"] == client]
         dff_grouped = (
             dff_grouped.groupby(["timestamp", "client"])["count"].sum().reset_index()
@@ -1462,7 +1490,7 @@ def update_client_activity(client, n_clicks):
     )
 
     fig.update_layout(
-        legend=dict(orientation="h", yanchor="top", y=-0.3, xanchor="center", x=0.5)
+        legend=dict(orientation="h", yanchor="top", y=-0.4, xanchor="center", x=0.5)
     )
 
     del dff_grouped, pivot_df
