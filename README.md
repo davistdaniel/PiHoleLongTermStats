@@ -37,8 +37,7 @@ There are multiple ways to run the dashboard: using Python or Docker.
 > You can set up a cron job to periodically copy the FTL database to the `db_path` `PIHOLE_LT_STATS_DB_PATH` location, ensuring your stats are updated without touching the live database. Use the reload button in the dashboard to refresh the stats.
 
 > [!IMPORTANT]
-> PiHoleLongTermStats reloads the Pi-hole FTL database and recalculates stats whenever the dashboard is refreshed or the reload button is clicked. If no date range is selected, it uses the default period set by `--days` or `PIHOLE_LT_STATS_DAYS`. Large data ranges may increase memory usage.
-
+> PiHoleLongTermStats reloads the Pi-hole FTL database and recalculates stats whenever the dashboard is refreshed or the reload button is clicked. If no date range is selected, it uses the default period set by `--days` or `PIHOLE_LT_STATS_DAYS`. Large data ranges may increase memory usage. Set your timezone (e.g "Europer/Berlin") using `--timezone` or `PIHOLE_LT_STATS_TIMEZONE`
 
 
 ### 🐳 Using Docker
@@ -125,6 +124,9 @@ You can configure the application using command-line arguments or environment va
 | `--db_path PATH`      | `PIHOLE_LT_STATS_DB_PATH`    | `pihole-FTL.db` | Path to the copied Pi-hole database file.        |
 | `--days DAYS`         | `PIHOLE_LT_STATS_DAYS`       | `31`           | Number of days of past data to analyze.          |
 | `--port PORT`         | `PIHOLE_LT_STATS_PORT`       | `9292`          | Port number to serve the Dash app on.            |
+| `--n_clients N_CLIENTS`         | `PIHOLE_LT_STATS_NCLIENTS`       | `10`          | Number of top clients to show in top clients plots.            |
+| `--port TIMEZONE`         | `PIHOLE_LT_STATS_TIMEZONE`       | `UTC`          | Timezone for displaying times in the dashboard.            |
+
 
 ## Supported metrics
 | Metric | Description |
