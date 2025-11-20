@@ -137,13 +137,15 @@ h3 {
 }
 
 .cardplot {
-    flex: 1 1 30%;
+    flex: 1 1 50%;
     background: #ffffff;
     border-left: 5px solid #34495e;
     border-radius: 15px;
     padding: 20px;
     transition: transform 0.2s ease-in-out;
 }
+
+
 
 .cardactivity {
     background: linear-gradient(135deg, #ffffff, #f5f5f0);
@@ -310,17 +312,23 @@ h3 {
 }
 
 .date-picker-btn .DateInput_input {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     background: #24292e;
     color: #f7f9fb;
     border: none;
     border-radius: 50px;
     padding: 0 20px;
-    height: 100%;
+    height: 46px;
     font-size: 16px;
     font-weight: 200;
     text-align: center;
-    line-height: 46px;
     cursor: pointer;
+    line-height: normal;
 }
 
 .date-picker-btn .DateRangePickerArrow {
