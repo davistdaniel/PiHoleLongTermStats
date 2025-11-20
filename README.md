@@ -74,6 +74,7 @@ If you have a copy of your `pihole-FTL.db` file, you can quickly run the dashboa
           - PIHOLE_LT_STATS_DAYS=31                   # Number of days of data to analyze; change if desired
           - PIHOLE_LT_STATS_PORT=9292                   # Port the app listens to inside container; keep in sync with ports mapping
           - PIHOLE_LT_STATS_NCLIENTS=10                 # Number of clients to show in top clients plots
+          - PIHOLE_LT_STATS_NDOMAINS=10                 # Number of domains to show in top domains plots
           - PIHOLE_LT_STATS_TIMEZONE=UTC              # timezone for display
         restart: unless-stopped
     ```
@@ -127,6 +128,7 @@ You can configure the application using command-line arguments or environment va
 | `--days DAYS`         | `PIHOLE_LT_STATS_DAYS`       | `31`           | Number of days back from today to analyze.          |
 | `--port PORT`         | `PIHOLE_LT_STATS_PORT`       | `9292`          | Port number to serve the Dash app on.            |
 | `--n_clients N_CLIENTS`         | `PIHOLE_LT_STATS_NCLIENTS`       | `10`          | Number of top clients to show in top clients plots.            |
+| `--n_domains N_DOMAINS`         | `PIHOLE_LT_STATS_NDOMAINS`       | `10`          | Number of top clients to show in top clients plots.            |
 | `--port TIMEZONE`         | `PIHOLE_LT_STATS_TIMEZONE`       | `UTC`          | Timezone for displaying times in the dashboard.            |
 
 
