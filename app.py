@@ -553,13 +553,6 @@ def generate_plot_data(df):
     )
 
     # plot data for allowed and blocked domains
-    # blocked_df = (
-    #     df[df["status_type"] == "Blocked"]["domain"]
-    #     .value_counts()
-    #     .nlargest(args.n_domains)
-    #     .reset_index()
-    #     .rename(columns={"index": "Count", "domain": "Domain"})
-    # )
     def shorten(s):
         return s if len(s) <= 45 else f"{s[:20]}...{s[-20:]}"
 
@@ -574,15 +567,6 @@ def generate_plot_data(df):
         .rename(columns={"index": "Count", "domain": "Domain"})
     )
 
-    # allowed_df = (
-    #     df[df["status_type"] == "Allowed"]["domain"]
-    #     .value_counts()
-    #     .nlargest(args.n_domains)
-    #     .reset_index()
-    #     .rename(columns={"index": "Count", "domain": "Domain"})
-    # )
-
-
     tmp = df[df["status_type"] == "Allowed"].copy()
     tmp["domain"] = tmp["domain"].apply(shorten)
 
@@ -596,7 +580,7 @@ def generate_plot_data(df):
 
     del tmp
     gc.collect()
-    
+
     # plot data for reply time over days
     reply_time_df = (
         df.groupby("date")["reply_time"]
@@ -1196,131 +1180,62 @@ def serve_layout(db_path, days, start_date=None, end_date=None, timezone="UTC"):
                 className="cardplot",
             ),
             html.Br(),
-            # html.Div(
-            #     [
-            #         html.Div(
-            #             [
-            #                 html.H2("Top Blocked Domains"),
-            #                 dcc.Graph(
-            #                     id="top-blocked-domains",
-            #                     figure=px.bar(
-            #                         plot_data["blocked_df"],
-            #                         x="Domain",
-            #                         y="count",
-            #                         labels={
-            #                             "Domain": "Domain",
-            #                             "count": "Count",
-            #                         },
-            #                         template="plotly_white",
-            #                         color_discrete_sequence=["#ef4444"],
-            #                     ).update_layout(
-            #                         showlegend=False,
-            #                         xaxis_tickangle=30,
-            #                         xaxis=dict(
-            #                             tickmode="array",
-            #                             tickvals=plot_data["blocked_df"]["Domain"],
-            #                             ticktext=[
-            #                                 d
-            #                                 if len(d) <= 40
-            #                                 else d[:15] + "…" + d[-15:]
-            #                                 for d in plot_data["blocked_df"]["Domain"]
-            #                             ],
-            #                         ),
-            #                     ),
-            #                 ),
-            #             ],
-            #             className="cardplot",
-            #         ),
-            #         html.Div(
-            #             [
-            #                 html.H2("Top Allowed Domains"),
-            #                 dcc.Graph(
-            #                     id="top-allowed-domains",
-            #                     figure=px.bar(
-            #                         plot_data["allowed_df"],
-            #                         x="Domain",
-            #                         y="count",
-            #                         labels={
-            #                             "Domain": "Domain",
-            #                             "count": "Count",
-            #                         },
-            #                         template="plotly_white",
-            #                         color_discrete_sequence=["#10b981"],
-            #                     ).update_layout(
-            #                         showlegend=False,
-            #                         xaxis_tickangle=30,
-            #                         xaxis=dict(
-            #                             tickmode="array",
-            #                             tickvals=plot_data["allowed_df"]["Domain"],
-            #                             ticktext=[
-            #                                 d
-            #                                 if len(d) <= 40
-            #                                 else d[:15] + "…" + d[-15:]
-            #                                 for d in plot_data["allowed_df"]["Domain"]
-            #                             ],
-            #                         ),
-            #                     ),
-            #                 ),
-            #             ],
-            #             className="cardplot",
-            #         ),
-            #     ],
-            #     className="row",
-            # ),
-            html.Div( [
-                            html.H2("Top Blocked Domains"),
-                            dcc.Graph(
-                                id="top-blocked-domains",
-                                figure=px.bar(
-                                    plot_data["blocked_df"],
-                                    y="count",
-                                    x="Domain",
-                                    labels={
-                                        "Domain": "Domain",
-                                        "count": "Count",
-                                    },
-                                    template="plotly_white",
-                                    color_discrete_sequence=["#ef4444"],
-                                ).update_layout(
-                                    showlegend=False,
-                                    margin=dict(r=0, t=0, l=0, b=0),
-                                    xaxis=dict(
-                                        title=None,
-                                        automargin=True,
-                                        tickmode="auto",
-                                    ),
-                                ),
+            html.Div(
+                [
+                    html.H2("Top Blocked Domains"),
+                    dcc.Graph(
+                        id="top-blocked-domains",
+                        figure=px.bar(
+                            plot_data["blocked_df"],
+                            y="count",
+                            x="Domain",
+                            labels={
+                                "Domain": "Domain",
+                                "count": "Count",
+                            },
+                            template="plotly_white",
+                            color_discrete_sequence=["#ef4444"],
+                        ).update_layout(
+                            showlegend=False,
+                            margin=dict(r=0, t=0, l=0, b=0),
+                            xaxis=dict(
+                                title=None,
+                                automargin=True,
+                                tickmode="auto",
                             ),
-                        ],
-                        className="cardplot",
+                        ),
                     ),
-            html.Div( [
-                            html.H2("Top Allowed Domains"),
-                            dcc.Graph(
-                                id="top-allowed-domains",
-                                figure=px.bar(
-                                    plot_data["allowed_df"],
-                                    y="count",
-                                    x="Domain",
-                                    labels={
-                                        "Domain": "Domain",
-                                        "count": "Count",
-                                    },
-                                    template="plotly_white",
-                                    color_discrete_sequence=["#10b981"],
-                                ).update_layout(
-                                    showlegend=False,
-                                    margin=dict(r=0, t=0, l=0, b=0),
-                                    xaxis=dict(
-                                        title=None,
-                                        automargin=True,
-                                        tickmode="auto",
-                                    ),
-                                ),
+                ],
+                className="cardplot",
+            ),
+            html.Div(
+                [
+                    html.H2("Top Allowed Domains"),
+                    dcc.Graph(
+                        id="top-allowed-domains",
+                        figure=px.bar(
+                            plot_data["allowed_df"],
+                            y="count",
+                            x="Domain",
+                            labels={
+                                "Domain": "Domain",
+                                "count": "Count",
+                            },
+                            template="plotly_white",
+                            color_discrete_sequence=["#10b981"],
+                        ).update_layout(
+                            showlegend=False,
+                            margin=dict(r=0, t=0, l=0, b=0),
+                            xaxis=dict(
+                                title=None,
+                                automargin=True,
+                                tickmode="auto",
                             ),
-                        ],
-                        className="cardplot",
+                        ),
                     ),
+                ],
+                className="cardplot",
+            ),
             html.Br(),
             html.Div(
                 [
@@ -1352,7 +1267,7 @@ def serve_layout(db_path, days, start_date=None, end_date=None, timezone="UTC"):
                                 y=-0.4,
                                 xanchor="center",
                                 x=0.5,
-                            )
+                            ),xaxis=dict(title=None,automargin=True)
                         ),
                     ),
                 ],
@@ -1363,7 +1278,7 @@ def serve_layout(db_path, days, start_date=None, end_date=None, timezone="UTC"):
                 [
                     html.Div(
                         [
-                            html.H2("Average Reply Time per Day"),
+                            html.H2("Average Reply Time"),
                             dcc.Graph(
                                 id="avg-reply-time",
                                 figure=px.line(
@@ -1421,6 +1336,9 @@ app.layout = html.Div(
         )
     ]
 )
+
+del initial_layout
+gc.collect()
 
 
 @app.callback(
