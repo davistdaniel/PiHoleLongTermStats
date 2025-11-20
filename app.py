@@ -55,6 +55,13 @@ parser.add_argument(
 )
 
 parser.add_argument(
+    "--n_domains",
+    type=int,
+    default=int(os.getenv("PIHOLE_LT_STATS_NDOMAINS", 10)),
+    help="Number of top domains to show in top domains plots. Env: PIHOLE_LT_STATS_NDOMAINS",
+)
+
+parser.add_argument(
     "--timezone",
     type=str,
     default=os.getenv("PIHOLE_LT_STATS_TIMEZONE", "UTC"),
@@ -70,6 +77,7 @@ logging.info(f"PIHOLE_LT_STATS_DAYS : {args.days}")
 logging.info(f"PIHOLE_LT_STATS_DB_PATH : {args.db_path}")
 logging.info(f"PIHOLE_LT_STATS_PORT : {args.port}")
 logging.info(f"PIHOLE_LT_STATS_NCLIENTS : {args.n_clients}")
+logging.info(f"PIHOLE_LT_STATS_NDOMAINS : {args.n_domains}")
 logging.info(f"PIHOLE_LT_STATS_TIMEZONE : {args.timezone}")
 
 
@@ -135,8 +143,6 @@ def read_pihole_ftl_db(
     logging.info(
         f"Loading data from PiHole-FTL database for the period ranging from {start_dt} to {end_dt}"
     )
-    # start_timestamp = int(start_dt.timestamp())
-    # end_timestamp = int(end_dt.timestamp())
 
     start_timestamp = int(start_dt.astimezone(ZoneInfo("UTC")).timestamp())
     end_timestamp = int(end_dt.astimezone(ZoneInfo("UTC")).timestamp())
@@ -164,6 +170,14 @@ def process_timestamps(df, timezone="UTC"):
     """Convert timestamps in pandas dataframe of FTL database to date time."""
 
     logging.info("Processing timestamps...")
+
+    if df.empty:
+        logging.error(
+            "Empty dataframe. No data returned from the database for the given parameters. Try adjusting --days to cover a larger time period."
+        )
+        raise RuntimeError(
+            "Empty dataframe. No data returned from the database for the given parameters. Try adjusting --days to cover a larger time period."
+        )
 
     try:
         tz = ZoneInfo(timezone)  # noqa: F841
@@ -539,21 +553,33 @@ def generate_plot_data(df):
     )
 
     # plot data for allowed and blocked domains
+    def shorten(s):
+        return s if len(s) <= 45 else f"{s[:20]}...{s[-20:]}"
+
+    tmp = df[df["status_type"] == "Blocked"].copy()
+    tmp["domain"] = tmp["domain"].apply(shorten)
+
     blocked_df = (
-        df[df["status_type"] == "Blocked"]["domain"]
+        tmp["domain"]
         .value_counts()
-        .nlargest(10)
+        .nlargest(args.n_domains)
         .reset_index()
         .rename(columns={"index": "Count", "domain": "Domain"})
     )
 
+    tmp = df[df["status_type"] == "Allowed"].copy()
+    tmp["domain"] = tmp["domain"].apply(shorten)
+
     allowed_df = (
-        df[df["status_type"] == "Allowed"]["domain"]
+        tmp["domain"]
         .value_counts()
-        .nlargest(10)
+        .nlargest(args.n_domains)
         .reset_index()
         .rename(columns={"index": "Count", "domain": "Domain"})
     )
+
+    del tmp
+    gc.collect()
 
     # plot data for reply time over days
     reply_time_df = (
@@ -1156,74 +1182,59 @@ def serve_layout(db_path, days, start_date=None, end_date=None, timezone="UTC"):
             html.Br(),
             html.Div(
                 [
-                    html.Div(
-                        [
-                            html.H2("Top Blocked Domains"),
-                            dcc.Graph(
-                                id="top-blocked-domains",
-                                figure=px.bar(
-                                    plot_data["blocked_df"],
-                                    x="Domain",
-                                    y="count",
-                                    labels={
-                                        "Domain": "Domain",
-                                        "count": "Count",
-                                    },
-                                    template="plotly_white",
-                                    color_discrete_sequence=["#ef4444"],
-                                ).update_layout(
-                                    showlegend=False,
-                                    xaxis_tickangle=30,
-                                    xaxis=dict(
-                                        tickmode="array",
-                                        tickvals=plot_data["blocked_df"]["Domain"],
-                                        ticktext=[
-                                            d
-                                            if len(d) <= 40
-                                            else d[:15] + "…" + d[-15:]
-                                            for d in plot_data["blocked_df"]["Domain"]
-                                        ],
-                                    ),
-                                ),
+                    html.H2("Top Blocked Domains"),
+                    dcc.Graph(
+                        id="top-blocked-domains",
+                        figure=px.bar(
+                            plot_data["blocked_df"],
+                            y="count",
+                            x="Domain",
+                            labels={
+                                "Domain": "Domain",
+                                "count": "Count",
+                            },
+                            template="plotly_white",
+                            color_discrete_sequence=["#ef4444"],
+                        ).update_layout(
+                            showlegend=False,
+                            margin=dict(r=0, t=0, l=0, b=0),
+                            xaxis=dict(
+                                title=None,
+                                automargin=True,
+                                tickmode="auto",
                             ),
-                        ],
-                        className="cardplot",
-                    ),
-                    html.Div(
-                        [
-                            html.H2("Top Allowed Domains"),
-                            dcc.Graph(
-                                id="top-allowed-domains",
-                                figure=px.bar(
-                                    plot_data["allowed_df"],
-                                    x="Domain",
-                                    y="count",
-                                    labels={
-                                        "Domain": "Domain",
-                                        "count": "Count",
-                                    },
-                                    template="plotly_white",
-                                    color_discrete_sequence=["#10b981"],
-                                ).update_layout(
-                                    showlegend=False,
-                                    xaxis_tickangle=30,
-                                    xaxis=dict(
-                                        tickmode="array",
-                                        tickvals=plot_data["allowed_df"]["Domain"],
-                                        ticktext=[
-                                            d
-                                            if len(d) <= 40
-                                            else d[:15] + "…" + d[-15:]
-                                            for d in plot_data["allowed_df"]["Domain"]
-                                        ],
-                                    ),
-                                ),
-                            ),
-                        ],
-                        className="cardplot",
+                        ),
                     ),
                 ],
-                className="row",
+                className="cardplot",
+            ),
+            html.Div(
+                [
+                    html.H2("Top Allowed Domains"),
+                    dcc.Graph(
+                        id="top-allowed-domains",
+                        figure=px.bar(
+                            plot_data["allowed_df"],
+                            y="count",
+                            x="Domain",
+                            labels={
+                                "Domain": "Domain",
+                                "count": "Count",
+                            },
+                            template="plotly_white",
+                            color_discrete_sequence=["#10b981"],
+                        ).update_layout(
+                            showlegend=False,
+                            margin=dict(r=0, t=0, l=0, b=0),
+                            xaxis=dict(
+                                title=None,
+                                automargin=True,
+                                tickmode="auto",
+                            ),
+                        ),
+                    ),
+                ],
+                className="cardplot",
             ),
             html.Br(),
             html.Div(
@@ -1256,7 +1267,7 @@ def serve_layout(db_path, days, start_date=None, end_date=None, timezone="UTC"):
                                 y=-0.4,
                                 xanchor="center",
                                 x=0.5,
-                            )
+                            ),xaxis=dict(title=None,automargin=True)
                         ),
                     ),
                 ],
@@ -1267,7 +1278,7 @@ def serve_layout(db_path, days, start_date=None, end_date=None, timezone="UTC"):
                 [
                     html.Div(
                         [
-                            html.H2("Average Reply Time per Day"),
+                            html.H2("Average Reply Time"),
                             dcc.Graph(
                                 id="avg-reply-time",
                                 figure=px.line(
@@ -1325,6 +1336,9 @@ app.layout = html.Div(
         )
     ]
 )
+
+del initial_layout
+gc.collect()
 
 
 @app.callback(
