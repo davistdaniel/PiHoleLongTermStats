@@ -16,6 +16,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+__version__ = "0.1.4"
 
 # logging setup
 logging.basicConfig(
@@ -1365,6 +1366,10 @@ def serve_layout(
                 ]
             ),
             html.Br(),
+            html.Footer(
+            f"PiHoleLongTermStats v.{__version__}",
+            style={"textAlign": "center", "padding": "10px", "color": "#666"},
+        ),
         ],
         className="container",
     )
