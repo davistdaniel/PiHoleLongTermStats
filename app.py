@@ -19,7 +19,8 @@ from zoneinfo import ZoneInfo
 
 # logging setup
 logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(filename)s - %(message)s",
 )
 
 ####### command line options #######
@@ -71,6 +72,7 @@ parser.add_argument(
 
 args = parser.parse_args()
 
+logging.info("Setting environment variables:")
 logging.info(f"PIHOLE_LT_STATS_DAYS : {args.days}")
 logging.info(f"PIHOLE_LT_STATS_DB_PATH : {args.db_path}")
 logging.info(f"PIHOLE_LT_STATS_PORT : {args.port}")
@@ -78,9 +80,8 @@ logging.info(f"PIHOLE_LT_STATS_NCLIENTS : {args.n_clients}")
 logging.info(f"PIHOLE_LT_STATS_NDOMAINS : {args.n_domains}")
 logging.info(f"PIHOLE_LT_STATS_TIMEZONE : {args.timezone}")
 
+
 ####### reading the database #######
-
-
 def connect_to_sql(db_path):
     """Connect to an SQL database"""
 
@@ -101,7 +102,7 @@ def connect_to_sql(db_path):
 def probe_sample_df(conn):
     """compute basic stats from a subset of the databases"""
 
-    # calculate safe chunksize to not overlaod system memory
+    # calculate safe chunksize to not overload system memory
     sample_query = """SELECT id, timestamp, type, status, domain, client, reply_time
     FROM queries LIMIT 5"""
     sample_df = pd.read_sql_query(sample_query, conn)
@@ -144,9 +145,14 @@ def read_pihole_ftl_db(
         logging.warning(f"Invalid timezone '{timezone}', using UTC")
         tz = ZoneInfo("UTC")
 
+    logging.info(f"Selected timezone: {timezone}")
+
     if start_date is not None and end_date is not None:
         # if dates are selected, use them
-        logging.info("A date range was selected.")
+        logging.info(
+            f"A date range was selected : {start_date} to {end_date} (TZ: {timezone})."
+        )
+
         start_dt = datetime.strptime(start_date, "%Y-%m-%d")
         end_dt = datetime.strptime(end_date, "%Y-%m-%d") + timedelta(days=1)
 
@@ -154,16 +160,26 @@ def read_pihole_ftl_db(
         end_dt = end_dt.replace(tzinfo=tz)
     else:
         # otherwise use default day given by days (or args.days)
-        logging.info("A date range was not selected. Using default number of days.")
+        logging.info(
+            f"A date range was not selected. Using default number of days : {days} (TZ: {timezone})."
+        )
         end_dt = datetime.now(tz)
         start_dt = end_dt - timedelta(days=days)
 
     logging.info(
-        f"Loading data from PiHole-FTL database for the period ranging from {start_dt} to {end_dt}"
+        f"Trying to read data from PiHole-FTL database for the period ranging from {start_dt} to {end_dt} (TZ: {timezone})..."
     )
 
     start_timestamp = int(start_dt.astimezone(ZoneInfo("UTC")).timestamp())
     end_timestamp = int(end_dt.astimezone(ZoneInfo("UTC")).timestamp())
+
+    logging.info(
+        f"Converted dates ranging from {start_dt} to {end_dt} (TZ: {timezone}) to timestamps in UTC : {start_timestamp} to {end_timestamp}"
+    )
+
+    logging.info(
+        f"Reading data from PiHole-FTL database for timestamps ranging from {start_timestamp} to {end_timestamp} (TZ: UTC)..."
+    )
 
     query = f"""
     SELECT id, timestamp, type, status, domain, client, reply_time	 
@@ -172,27 +188,28 @@ def read_pihole_ftl_db(
     """
 
     for db_idx, db_path in enumerate(db_paths):
-        logging.info(f"Processing database {db_idx + 1}/{len(db_paths)}: {db_path}")
+        logging.info(f"Processing database {db_idx + 1}/{len(db_paths)}: {db_path}...")
         conn = connect_to_sql(db_path)
 
         chunk_num = 0
         for chunk in pd.read_sql_query(query, conn, chunksize=chunksize[db_idx]):
             chunk_num += 1
             logging.info(
-                f"Processing dataframe chunk {chunk_num} from database {db_idx + 1}"
+                f"Processing dataframe chunk {chunk_num} from database {db_idx + 1}..."
             )
             yield chunk
 
         conn.close()
 
+
 ####### data collection for cards and plots #######
 
 
 # basic time processing
-def process_timestamps(df, timezone="UTC"):
-    """Convert timestamps in pandas dataframe of FTL database to date time."""
+def preprocess_df(df, timezone="UTC"):
+    """Pre-process df to generate timestamps, blocked,allowed domains etc."""
 
-    logging.info("Processing timestamps...")
+    logging.info("Pre-processing dataframe...")
 
     try:
         tz = ZoneInfo(timezone)  # noqa: F841
@@ -200,11 +217,16 @@ def process_timestamps(df, timezone="UTC"):
         logging.warning(f"Invalid timezone '{timezone}', falling back to UTC: {e}")
         timezone = "UTC"
 
+    logging.info(f"Selected timezone : {timezone}")
+    df = df.sort_values("timestamp").reset_index(drop=True)
     df["timestamp"] = pd.to_datetime(df["timestamp"], unit="s", utc=True)
     df["timestamp"] = df["timestamp"].dt.tz_convert(timezone)
     df["date"] = df["timestamp"].dt.normalize()  # needed in group by operations
     df["hour"] = df["timestamp"].dt.hour
     df["day_period"] = df["hour"].apply(lambda h: "Day" if 6 <= h < 24 else "Night")
+    logging.info(
+        f"Set timestamp, date, hour and day_period columns using timezone : {timezone}"
+    )
 
     # status ids for pihole ftl db, see pi-hole FTL docs
     logging.info("Processing allowed and blocked status codes...")
@@ -218,6 +240,7 @@ def process_timestamps(df, timezone="UTC"):
 
     df["day_name"] = df["timestamp"].dt.day_name()
     df["reply_time"] = pd.to_numeric(df["reply_time"], errors="coerce")
+    logging.info("Set status_type, day_name and reply_time columns.")
 
     return df
 
@@ -230,19 +253,22 @@ def compute_stats(df, min_date_available, max_date_available):
 
     # data used for first heading
     stats["n_data_points"] = len(df)
+    logging.info(f"Stats will be based on {stats['n_data_points']} data points.")
+
     stats["oldest_data_point"] = f"{min_date_available.strftime('%-d-%-m-%Y (%H:%M)')}"
     stats["latest_data_point"] = f"{max_date_available.strftime('%-d-%-m-%Y (%H:%M)')}"
     stats["min_date"] = df["timestamp"].min().strftime("%-d-%-m-%Y (%H:%M)")
     stats["max_date"] = df["timestamp"].max().strftime("%-d-%-m-%Y (%H:%M)")
-
-    logging.info(f"Min and max dates : {stats['min_date']},{stats['max_date']}")
+    logging.info(
+        f"Stats will be computed for dates ranging from {stats['min_date']} to {stats['max_date']}"
+    )
 
     date_diff = df["timestamp"].max() - df["timestamp"].min()
     stats["data_span_days"] = date_diff.days
     hours = (date_diff.seconds // 3600) % 24
     minutes = (date_diff.seconds // 60) % 60
     stats["data_span_str"] = f"{stats['data_span_days']}d,{hours}h and {minutes}min"
-    logging.info("Data for headings.Done.")
+    logging.info("Computed data for headings.")
 
     # query stats
     stats["total_queries"] = len(df)
@@ -250,7 +276,7 @@ def compute_stats(df, min_date_available, max_date_available):
     stats["allowed_count"] = len(df[df["status_type"] == "Allowed"])
     stats["blocked_pct"] = (stats["blocked_count"] / stats["total_queries"]) * 100
     stats["allowed_pct"] = (stats["allowed_count"] / stats["total_queries"]) * 100
-    logging.info("Data for query metrics.Done.")
+    logging.info("Computed data for query metrics.")
 
     # top clients
     stats["top_client"] = df["client"].value_counts().idxmax()
@@ -260,7 +286,7 @@ def compute_stats(df, min_date_available, max_date_available):
     stats["top_blocked_client"] = (
         df[df["status_type"] == "Blocked"]["client"].value_counts().idxmax()
     )
-    logging.info("Data for top clients.Done.")
+    logging.info("Computed data for top clients.")
 
     # domain stats
     stats["top_allowed_domain"] = (
@@ -292,7 +318,7 @@ def compute_stats(df, min_date_available, max_date_available):
         .idxmax()
     )
     stats["unique_domains"] = df["domain"].nunique()
-    logging.info("Data for domains.Done.")
+    logging.info("Computed data for domains.")
 
     # most persistent client despite being blocked
     blocked_df_c = df[df["status_type"] == "Blocked"]
@@ -306,7 +332,7 @@ def compute_stats(df, min_date_available, max_date_available):
     stats["most_persistent_client"] = most_persistent_row["client"]
     stats["blocked_domain"] = most_persistent_row["domain"]
     stats["repeat_attempts"] = most_persistent_row["count"]
-    logging.info("Data for most persistent client.Done.")
+    logging.info("Computed data for most persistent client.")
 
     # activity stats based on date
     query_date_counts = df.groupby("date")["domain"].count()
@@ -322,7 +348,7 @@ def compute_stats(df, min_date_available, max_date_available):
     stats["date_least_queries"] = query_date_counts.idxmin().strftime("%d %B %Y")
     stats["date_least_blocked"] = blocked_date_counts.idxmin().strftime("%d %B %Y")
     stats["date_least_allowed"] = allowed_date_counts.idxmin().strftime("%d %B %Y")
-    logging.info("Data for activity stats based on date.Done.")
+    logging.info("Computed data for activity stats based on date.")
 
     # activity stats based on hour
     hourly_counts = df.groupby("hour").size()
@@ -330,7 +356,7 @@ def compute_stats(df, min_date_available, max_date_available):
     stats["least_active_hour"] = hourly_counts.idxmin()
     stats["avg_queries_most"] = int(hourly_counts.max())
     stats["avg_queries_least"] = int(hourly_counts.min())
-    logging.info("Data for activity stats based on hour.Done.")
+    logging.info("Computed data for activity stats based based on hour.")
 
     # activity stats based on day
     daily_counts = (
@@ -345,7 +371,7 @@ def compute_stats(df, min_date_available, max_date_available):
     stats["most_active_avg"] = int(avg.max())
     stats["least_active_day"] = avg.idxmin()
     stats["least_active_avg"] = int(avg.min())
-    logging.info("Data for activity stats based on day.Done.")
+    logging.info("Computed data for activity stats based based on hour.")
 
     # day-night stats
     day_df = df[df["day_period"] == "Day"]
@@ -425,7 +451,7 @@ def compute_stats(df, min_date_available, max_date_available):
         .idxmax()
     )
 
-    logging.info("Data for day and night stats.Done.")
+    logging.info("Computed data for day and night stats.")
 
     # allowed and blocked streaks
     df_sorted = df.sort_values("timestamp").copy()
@@ -474,7 +500,7 @@ def compute_stats(df, min_date_available, max_date_available):
         "%H:%M"
     )
 
-    logging.info("Data for streak stats.Done.")
+    logging.info("Computed data for streak stats.")
 
     # idle time stats
     max_idle_ms = df_sorted["idle_gap"].max()
@@ -505,7 +531,7 @@ def compute_stats(df, min_date_available, max_date_available):
     stats["before_gap"] = before_gap
     stats["after_gap"] = after_gap
 
-    logging.info("Data for time stats.Done.")
+    logging.info("Computed data for time stats.")
 
     stats["unique_clients"] = df["client"].nunique()
     diverse_client_df = (
@@ -527,7 +553,7 @@ def compute_stats(df, min_date_available, max_date_available):
     stats["slowest_domain"] = slowest_domain_row["domain"]
     stats["slowest_avg_reply_time"] = slowest_domain_row["reply_time"]
 
-    logging.info("Data for reply time stats.Done.")
+    logging.info("Computed data for reply time stats.")
 
     logging.info("All stats computed.")
     # release some memory, testing if this is the memory leak
@@ -535,7 +561,6 @@ def compute_stats(df, min_date_available, max_date_available):
     del blocked_groups, allowed_groups, streaks_blocked, streaks_allowed
     del blocked, allowed, diverse_client_df
     gc.collect()
-    logging.info("Deleted dataframes which are no longer needed")
 
     return stats
 
@@ -564,6 +589,7 @@ def generate_plot_data(df):
     top_clients_stacked = top_clients_stacked.sort_values(
         ["client", "count"], ascending=[True, False]
     )
+    logging.info("Generated plot data for top clients.")
 
     # plot data for allowed and blocked domains
     def shorten(s):
@@ -594,6 +620,8 @@ def generate_plot_data(df):
     del tmp
     gc.collect()
 
+    logging.info("Generated plot data for allowed and blocked domains.")
+
     # plot data for reply time over days
     reply_time_df = (
         df.groupby("date")["reply_time"]
@@ -601,6 +629,8 @@ def generate_plot_data(df):
         .mul(1000)
         .reset_index(name="reply_time_ms")
     )
+
+    logging.info("Generated plot data for reply time plot")
 
     client_list = df["client"].unique().tolist()
 
@@ -682,11 +712,8 @@ def serve_layout(
     df["type"] = df["type"].astype("int8")
     df["status"] = df["status"].astype("int8")
 
-    # sort according to timestamp
-    df = df.sort_values("timestamp").reset_index(drop=True)
-
-    # process timestamps accordinh to timezone
-    df = process_timestamps(df, timezone=timezone)
+    # process timestamps according to timezone
+    df = preprocess_df(df, timezone=timezone)
 
     # compute the stats
     stats = compute_stats(df, min_date_available, max_date_available)
@@ -1349,7 +1376,7 @@ def serve_layout(
 
 ####### Intializing the app #######
 
-logging.info("Initializing Dash app")
+logging.info("Initializing PiHoleLongTermStats Dashboard")
 app = Dash("PiHoleLongTermStats")
 app.title = "PiHoleLongTermStats"
 
@@ -1370,18 +1397,26 @@ for db in db_paths:
     oldest_ts_list.append(oldest_ts.tz_convert(ZoneInfo(args.timezone)))
     conn.close()
 
-logging.info(f"Latest data point from consolidated data : {max(latest_ts_list)}")
-logging.info(f"Oldest data point from consolidated data : {min(oldest_ts_list)}")
+logging.info(
+    f"Latest date-time from all databases : {max(latest_ts_list)} (TZ: {args.timezone})"
+)
+logging.info(
+    f"Oldest date-time from all databases : {min(oldest_ts_list)} (TZ: {args.timezone})"
+)
 
-# Initialize with data
+# Initialize with data, no date range initially.
 PHLTS_CALLBACK_DATA, initial_layout = serve_layout(
-    args.db_path,
-    args.days,
-    max(latest_ts_list),
-    min(oldest_ts_list),
-    chunksize_list,
+    db_path=args.db_path,
+    days=args.days,
+    max_date_available=max(latest_ts_list),
+    min_date_available=min(oldest_ts_list),
+    chunksize_list=chunksize_list,
+    start_date=None,
+    end_date=None,
     timezone=args.timezone,
 )
+
+logging.info("Setting initial layout...")
 
 app.layout = html.Div(
     [
@@ -1414,14 +1449,16 @@ gc.collect()
 def reload_page(n_clicks, start_date, end_date):
     global PHLTS_CALLBACK_DATA
 
-    logging.info(f"Reload button clicked. Date range: {start_date, end_date}")
+    logging.info(f"Reload button clicked. Selected date range: {start_date, end_date}")
 
     PHLTS_CALLBACK_DATA, layout = serve_layout(
-        args.db_path,
-        args.days,
-        max(latest_ts_list),
-        min(oldest_ts_list),
-        chunksize_list,
+        db_path=args.db_path,
+        days=args.days,
+        max_date_available=max(latest_ts_list),
+        min_date_available=min(oldest_ts_list),
+        chunksize_list=chunksize_list,
+        start_date=start_date,
+        end_date=end_date,
         timezone=args.timezone,
     )
 
@@ -1513,8 +1550,6 @@ def update_client_activity(client, n_clicks):
 
     dff_grouped = PHLTS_CALLBACK_DATA["hourly_agg"]
     top_clients = PHLTS_CALLBACK_DATA["top_clients"]
-
-    logging.info(f"Number of clients : {len(top_clients)}")
 
     if client:
         logging.info(f"Selected client : {client}")
