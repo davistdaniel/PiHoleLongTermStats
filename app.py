@@ -168,7 +168,7 @@ def read_pihole_ftl_db(
         start_dt = end_dt - timedelta(days=days)
 
     logging.info(
-        f"Trying to read data from PiHole-FTL database for the period ranging from {start_dt} to {end_dt} (TZ: {timezone})..."
+        f"Trying to read data from PiHole-FTL database(s) for the period ranging from {start_dt} to {end_dt} (TZ: {timezone})..."
     )
 
     start_timestamp = int(start_dt.astimezone(ZoneInfo("UTC")).timestamp())
@@ -179,7 +179,7 @@ def read_pihole_ftl_db(
     )
 
     logging.info(
-        f"Reading data from PiHole-FTL database for timestamps ranging from {start_timestamp} to {end_timestamp} (TZ: UTC)..."
+        f"Reading data from PiHole-FTL database(s) for timestamps ranging from {start_timestamp} to {end_timestamp} (TZ: UTC)..."
     )
 
     query = f"""
@@ -189,14 +189,14 @@ def read_pihole_ftl_db(
     """
 
     for db_idx, db_path in enumerate(db_paths):
-        logging.info(f"Processing database {db_idx + 1}/{len(db_paths)}: {db_path}...")
+        logging.info(f"Processing database {db_idx + 1}/{len(db_paths)} at {db_path}...")
         conn = connect_to_sql(db_path)
 
         chunk_num = 0
         for chunk in pd.read_sql_query(query, conn, chunksize=chunksize[db_idx]):
             chunk_num += 1
             logging.info(
-                f"Processing dataframe chunk {chunk_num} from database {db_idx + 1}..."
+                f"Processing dataframe chunk {chunk_num} from database {db_idx + 1} at {db_path}..."
             )
             yield chunk
 
@@ -682,6 +682,10 @@ def serve_layout(
 
     if isinstance(db_path, str):
         db_paths = db_path.split(",")
+        logging.info(f"Total number of database files provided : {len(db_paths)}")
+    else:
+        logging.error(f"db_path parameter must be of type str but got {type(db_path)}")
+        raise ValueError(f"db_path parameter must be of type str but got {type(db_path)}")
 
     start_memory = psutil.virtual_memory().available
 
@@ -698,7 +702,7 @@ def serve_layout(
         ignore_index=True,
     )
 
-    logging.info("Converted DB to a pandas dataframe")
+    logging.info("Converted database to a pandas dataframe")
 
     if df.empty:
         logging.error(
