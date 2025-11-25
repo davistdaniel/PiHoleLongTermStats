@@ -85,6 +85,8 @@ If you have a copy of your `pihole-FTL.db` file, you can quickly run the dashboa
           - PIHOLE_LT_STATS_NCLIENTS=10                 # Number of clients to show in top clients plots
           - PIHOLE_LT_STATS_NDOMAINS=10                 # Number of domains to show in top domains plots
           - PIHOLE_LT_STATS_TIMEZONE=UTC                # timezone for display
+          # regex patterns for excluding domains. Example: to exclude all ".local" domains use ".*\.local"; Use comma-separated string for multiple patterns
+          #- PIHOLE_LT_STATS_IGNORE_DOMAINS=""           
         restart: unless-stopped
     ```
     and run using :
