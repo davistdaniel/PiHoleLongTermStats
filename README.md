@@ -131,7 +131,7 @@ If you have a copy of your `pihole-FTL.db` file, you can quickly run the dashboa
 5. Open your browser and visit [http://localhost:9292](http://localhost:9292)
 
   * Examples for python: 
-    > To start the dashboard and visualize a single pihole-FTL database file for the last 15 days, with top 20 clients and top 15 domains on port 9292 while ingoring all domains which end with ".local":
+    To start the dashboard and visualize a single pihole-FTL database file for the last 15 days, with top 20 clients and top 15 domains on port 9292 while ingoring all domains which end with ".local":
 
     ```bash
     python app.py --db_path pihole-FTL.db --days 15 --n_clients 20 --n_domains 15 --port 9292 --ignore-domains ".*\.local"
@@ -155,7 +155,7 @@ You can configure the application using command-line arguments or environment va
 | `--n_clients N_CLIENTS`         | `PIHOLE_LT_STATS_NCLIENTS`       | `10`          | Number of top clients to show in top clients plots.            |
 | `--n_domains N_DOMAINS`         | `PIHOLE_LT_STATS_NDOMAINS`       | `10`          | Number of top clients to show in top clients plots.            |
 | `--port TIMEZONE`         | `PIHOLE_LT_STATS_TIMEZONE`       | `UTC`          | Timezone for displaying times in the dashboard.            |
-| --ignore-domains regex | `PIHOLE_LT_STATS_IGNORE_DOMAINS` | `""` | Comma-separated list of domains or regex patterns to exclude from stats (e.g., .*\.local for internal hosts). |
+| `--ignore-domains regex` | `PIHOLE_LT_STATS_IGNORE_DOMAINS` | `""` | Comma-separated list of domains or regex patterns to exclude from stats (e.g., .*\.local for internal hosts). |
 
 
 ## Supported metrics
