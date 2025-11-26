@@ -3,6 +3,7 @@
 ## License :  MIT
 
 import os
+import re
 import gc
 import sqlite3
 import argparse
@@ -70,6 +71,12 @@ parser.add_argument(
     help="Timezone for display (e.g., 'America/New_York', 'Europe/London'). Env: PIHOLE_LT_STATS_TIMEZONE",
 )
 
+parser.add_argument(
+    "--ignore_domains",
+    type=str,
+    default=os.getenv("PIHOLE_LT_STATS_IGNORE_DOMAINS", ""),
+    help="Comma-separated list of domains or regex patterns to ignore. Default: no domains ignored. Env: PIHOLE_LT_STATS_IGNORE_DOMAINS",
+)
 
 args = parser.parse_args()
 
@@ -80,6 +87,8 @@ logging.info(f"PIHOLE_LT_STATS_PORT : {args.port}")
 logging.info(f"PIHOLE_LT_STATS_NCLIENTS : {args.n_clients}")
 logging.info(f"PIHOLE_LT_STATS_NDOMAINS : {args.n_domains}")
 logging.info(f"PIHOLE_LT_STATS_TIMEZONE : {args.timezone}")
+logging.info(f"PIHOLE_LT_STATS_IGNORE_DOMAINS : {args.ignore_domains}")
+
 
 
 ####### reading the database #######
@@ -207,6 +216,22 @@ def read_pihole_ftl_db(
 
 
 # basic time processing
+
+def _is_valid_regex(pattern):
+    try:
+        re.compile(pattern)
+        return True
+    except re.error:
+        return False
+
+def regex_ignore_domains(df,pattern):
+    if _is_valid_regex(pattern):
+        mask = df['domain'].str.contains(pattern, regex=True, na=False)
+        return df[~mask].reset_index(drop=True)
+    else:
+        logging.warning(f"Ignored invalid regex pattern for domain exclusion : {pattern}")
+        return df
+
 def preprocess_df(df, timezone="UTC"):
     """Pre-process df to generate timestamps, blocked,allowed domains etc."""
 
@@ -677,6 +702,7 @@ def serve_layout(
     start_date=None,
     end_date=None,
     timezone="UTC",
+    ignore_domains=""
 ):
     """Read pihole ftl db, process data, compute stats"""
 
@@ -686,6 +712,14 @@ def serve_layout(
     else:
         logging.error(f"db_path parameter must be of type str but got {type(db_path)}")
         raise ValueError(f"db_path parameter must be of type str but got {type(db_path)}")
+    
+    if ignore_domains != "":
+        if isinstance(ignore_domains,str):
+            regex_pattern_list=[p.strip() for p in ignore_domains.split(",") if p.strip()]
+            logging.info(f"Total number of regex patterns for ignoring domains : {len(regex_pattern_list)}")
+        else:
+            logging.error(f"ignore_domains parameter must be of type str but got {type(ignore_domains)}")
+            raise ValueError(f"ignore_domains parameter must be of type str but got {type(ignore_domains)}")
 
     start_memory = psutil.virtual_memory().available
 
@@ -702,7 +736,7 @@ def serve_layout(
         ignore_index=True,
     )
 
-    logging.info("Converted database to a pandas dataframe")
+    logging.info(f"Converted database to a pandas dataframe with {len(df)} rows.")
 
     if df.empty:
         logging.error(
@@ -711,6 +745,10 @@ def serve_layout(
         raise RuntimeError(
             f"Empty dataframe. No data returned from the database for the given parameters. Database records range from {min_date_available} to {max_date_available}. Try increasing `--days` or the environment variable `PIHOLE_LT_STATS_DAYS`."
         )
+    if ignore_domains != "":
+        for pattern in regex_pattern_list:
+            df = regex_ignore_domains(df,pattern)
+            logging.info(f"Removed domains matching the regex pattern : {pattern}, number of rows in dataframe : {len(df)}")
 
     # should reduce some memory consumption
     df["id"] = df["id"].astype("int32")
@@ -1386,7 +1424,7 @@ def serve_layout(
 ####### Intializing the app #######
 
 logging.info("Initializing PiHoleLongTermStats Dashboard")
-app = Dash("PiHoleLongTermStats")
+app = Dash(__name__)
 app.title = "PiHoleLongTermStats"
 
 if isinstance(args.db_path, str):
@@ -1423,6 +1461,7 @@ PHLTS_CALLBACK_DATA, initial_layout = serve_layout(
     start_date=None,
     end_date=None,
     timezone=args.timezone,
+    ignore_domains=args.ignore_domains
 )
 
 logging.info("Setting initial layout...")
@@ -1469,6 +1508,7 @@ def reload_page(n_clicks, start_date, end_date):
         start_date=start_date,
         end_date=end_date,
         timezone=args.timezone,
+        ignore_domains=args.ignore_domains
     )
 
     return layout.children

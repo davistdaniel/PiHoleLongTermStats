@@ -21,6 +21,7 @@ A dashboard built with **Dash** and **Plotly** to explore long-term DNS query da
 - 🔍 Filter queries by client  
 - 🌐 View any number of top blocked/allowed domains, top clients.
 - 📅 Analyze queries and compute stats over a custom date range.
+- ❌ Exclude domains using regex patterns before computing stats
 
 ## 📦 Dependencies
 
@@ -59,7 +60,7 @@ If you have a copy of your `pihole-FTL.db` file, you can quickly run the dashboa
    ```bash
    # Example: Copy from the default Pi-hole location
    sudo cp /etc/pihole/pihole-FTL.db . 
-   # Ensure the user running the app has read permissions (Docker needs this)
+   # Ensure the user running the app has read permissions
    sudo chown $USER:$USER pihole-FTL.db
    ```
 3. Make a docker-compose.yml file in the same directory:
@@ -73,18 +74,26 @@ If you have a copy of your `pihole-FTL.db` file, you can quickly run the dashboa
           - "9292:9292"  # Map host port to container port
         volumes:
           - ./pihole-FTL.db:/app/pihole-FTL.db:ro  # Path to your Pi-hole DB file (adjust if it's not in current directory)
-          # To include additional Pi-hole databases, mount each one like similarly:
+          # To include additional Pi-hole databases, mount each one similarly:
           #- ./pihole-FTL-2.db:/app/pihole-FTL-2.db:ro
         environment:
           - PIHOLE_LT_STATS_DB_PATH=/app/pihole-FTL.db  # Path inside the container to the mounted DB file
+          
           # Provide multiple databases by listing their container paths as a
           # comma-separated string, e.g.:
           #- PIHOLE_LT_STATS_DB_PATH=/app/pihole-FTL.db,/app/pihole-FTL-2.db
+
           - PIHOLE_LT_STATS_DAYS=31                     # Number of days from now of data to analyze; change if desired
           - PIHOLE_LT_STATS_PORT=9292                   # Port the app listens to inside container; keep in sync with ports mapping
           - PIHOLE_LT_STATS_NCLIENTS=10                 # Number of clients to show in top clients plots
           - PIHOLE_LT_STATS_NDOMAINS=10                 # Number of domains to show in top domains plots
           - PIHOLE_LT_STATS_TIMEZONE=UTC                # timezone for display
+          #- PIHOLE_LT_STATS_IGNORE_DOMAINS=.*\.local   # regex patterns for excluding domains. Example: to exclude all .local domains use .*\.local
+          
+          # To ignore multiple domain patterns, separate each regex with a comma.
+          # example definition below ignores: anything ending in .local, anything starting with ads, exactly example.com
+          #- PIHOLE_LT_STATS_IGNORE_DOMAINS=.*\.local,^ads\.,^example\.com$
+
         restart: unless-stopped
     ```
     and run using :
@@ -129,15 +138,19 @@ If you have a copy of your `pihole-FTL.db` file, you can quickly run the dashboa
 5. Open your browser and visit [http://localhost:9292](http://localhost:9292)
 
   * Examples for python: 
-    > To start the dashboard and visualize a single pihole-FTL database file for the last 15 days, with top 20 clients and top 15 domains on port 9292:
+    To start the dashboard and visualize a single pihole-FTL database file for the last 15 days, with top 20 clients and top 15 domains on port 9292 while ingoring all domains which end with ".local":
 
     ```bash
-    python app.py --db_path pihole-FTL.db --days 15 --n_clients 20 --n_domains 15 --port 9292
+    python app.py --db_path pihole-FTL.db --days 15 --n_clients 20 --n_domains 15 --port 9292 --ignore-domains ".*\.local"
     ```
     To combine two databases, provide paths as comma-separated strings:
     
     ```bash
-    python app.py --db_path pihole-FTL.db,pihole-FTL-2.db --days 15 --n_clients 20 --n_domains 15 --port 9292
+    python app.py --db_path pihole-FTL.db,pihole-FTL-2.db
+    ```
+    To exclude multiple domains, provide comma-separated regex patterns:
+    ```bash
+    python app.py --ignore-domains ".*\.local,.*\.apple.com"
     ```
 
 
@@ -147,12 +160,13 @@ You can configure the application using command-line arguments or environment va
 
 | Command-Line Argument | Environment Variable         | Default Value   | Description                                      |
 |-----------------------|------------------------------|-----------------|--------------------------------------------------|
-| `--db_path PATH`      | `PIHOLE_LT_STATS_DB_PATH`    | `pihole-FTL.db` | Path to the copied Pi-hole database file. Multiple databases can be combined by providing paths as comma-separated strings.        |
-| `--days DAYS`         | `PIHOLE_LT_STATS_DAYS`       | `31`           | Number of days back from today to analyze.          |
-| `--port PORT`         | `PIHOLE_LT_STATS_PORT`       | `9292`          | Port number to serve the Dash app on.            |
-| `--n_clients N_CLIENTS`         | `PIHOLE_LT_STATS_NCLIENTS`       | `10`          | Number of top clients to show in top clients plots.            |
-| `--n_domains N_DOMAINS`         | `PIHOLE_LT_STATS_NDOMAINS`       | `10`          | Number of top clients to show in top clients plots.            |
-| `--port TIMEZONE`         | `PIHOLE_LT_STATS_TIMEZONE`       | `UTC`          | Timezone for displaying times in the dashboard.            |
+| `--db_path`      | `PIHOLE_LT_STATS_DB_PATH`    | `pihole-FTL.db` | Path to the copied Pi-hole database file. Multiple databases can be combined by providing paths as comma-separated strings.        |
+| `--days`         | `PIHOLE_LT_STATS_DAYS`       | `31`           | Number of days back from today to analyze.          |
+| `--port`         | `PIHOLE_LT_STATS_PORT`       | `9292`          | Port number to serve the Dash app on.            |
+| `--n_clients`         | `PIHOLE_LT_STATS_NCLIENTS`       | `10`          | Number of top clients to show in top clients plots.            |
+| `--n_domains`         | `PIHOLE_LT_STATS_NDOMAINS`       | `10`          | Number of top clients to show in top clients plots.            |
+| `--port`         | `PIHOLE_LT_STATS_TIMEZONE`       | `UTC`          | Timezone for displaying times in the dashboard.            |
+| `--ignore-domains` | `PIHOLE_LT_STATS_IGNORE_DOMAINS` | `""` | Comma-separated regex patterns to exclude domains from from stats (e.g to exlcude all .local domains, use ".*\.local") |
 
 
 ## Supported metrics
