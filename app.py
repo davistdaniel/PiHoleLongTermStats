@@ -1424,7 +1424,7 @@ def serve_layout(
 ####### Intializing the app #######
 
 logging.info("Initializing PiHoleLongTermStats Dashboard")
-app = Dash("PiHoleLongTermStats")
+app = Dash(__name__)
 app.title = "PiHoleLongTermStats"
 
 if isinstance(args.db_path, str):
