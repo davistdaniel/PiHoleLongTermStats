@@ -1,6 +1,6 @@
-# Pi Hole Long Term Statistics v.0.1.3
+# Pi Hole Long Term Statistics v.0.1.4
 
-A dashboard built with **Dash** and **Plotly** to explore long-term DNS query data from a **Pi-hole v.6** FTL database file. Visualize allowed vs blocked domains, top clients, and query trends over time. If you find this project helpful, please consider giving it a ⭐ to show your support.
+A dashboard built with **Dash** and **Plotly** to explore long-term DNS query data from **Pi-hole v.6** FTL database files. Visualize allowed vs blocked domains, top clients, and query trends over time. If you find this project helpful, please consider giving it a ⭐ to show your support.
 
 
 **Disclaimer : This is an unofficial, third-party project. The Pi Hole team and the development of Pi Hole software is not related to this project.**
@@ -15,10 +15,11 @@ A dashboard built with **Dash** and **Plotly** to explore long-term DNS query da
 </center>
 
 ## 🧰 Features
+- ➕ Combine multiple databases and visualize consolidated stats
 - 🗂️ Info cards : Query stats, Activity stats, Day and Night stats. See [all supported metrics](#supported-metrics)
 - 📈 Interactive charts for query trends and client behavior  
 - 🔍 Filter queries by client  
-- 🌐 View top blocked/allowed domains  
+- 🌐 View any number of top blocked/allowed domains, top clients.
 - 📅 Analyze queries and compute stats over a custom date range.
 
 ## 📦 Dependencies
@@ -28,17 +29,20 @@ A dashboard built with **Dash** and **Plotly** to explore long-term DNS query da
 
 ## 🚀 Getting Started
 
-There are multiple ways to run the dashboard: using Python or Docker.
-
 > [!WARNING]
 > Using your actual Pi-hole FTL db file for querying is **not** recommended and it is advised to use a copy. Place the copy in the project root or specify its path using the `--db_path` argument or `PIHOLE_LT_STATS_DB_PATH` environment variable. In any case, PiHoleLongTermStats does not monitor for changes in the Pi-hole FTL db file even if you mount it.
 
 > [!TIP]
-> You can set up a cron job to periodically copy the FTL database to the `db_path` `PIHOLE_LT_STATS_DB_PATH` location, ensuring your stats are updated without touching the live database. Use the reload button in the dashboard to refresh the stats.
+> * You can set up a cron job to periodically copy the FTL database to the `db_path` `PIHOLE_LT_STATS_DB_PATH` location, ensuring your stats are updated without touching the live database. Use the reload button in the dashboard to refresh the stats.
+> * Set your timezone (e.g "Europe/Berlin") using `--timezone` or `PIHOLE_LT_STATS_TIMEZONE`.
 
 > [!IMPORTANT]
-> PiHoleLongTermStats reloads the Pi-hole FTL database and recalculates stats whenever the dashboard is refreshed or the reload button is clicked. If no date range is selected, it uses the default period set by `--days` or `PIHOLE_LT_STATS_DAYS`. Large data ranges may increase memory usage. Set your timezone (e.g "Europe/Berlin") using `--timezone` or `PIHOLE_LT_STATS_TIMEZONE`.
+> * PiHoleLongTermStats reloads the Pi-hole FTL database and recalculates stats whenever the dashboard is refreshed or the reload button is clicked.
+> * If no date range is selected, it uses the default period set by `--days` or `PIHOLE_LT_STATS_DAYS`.
+> * Large date ranges may lead to increased memory usage.
+> * When multiple database files are provided, PiHoleLongTermStats concatenates them into a single dataframe and sorts the combined data by timestamp. Duplicate entries are **not** removed for calculating stats. Consolidating multiple databases can lead to increased memory usage.
 
+There are multiple ways to run the dashboard: using Python or Docker.
 
 ### 🐳 Using Docker
 
@@ -66,16 +70,21 @@ If you have a copy of your `pihole-FTL.db` file, you can quickly run the dashboa
         image: ghcr.io/davistdaniel/piholelongtermstats:latest
         container_name: pihole-lt-stats
         ports:
-          - "9292:9292"  # Map host port 9292 to container port 9292
+          - "9292:9292"  # Map host port to container port
         volumes:
           - ./pihole-FTL.db:/app/pihole-FTL.db:ro  # Path to your Pi-hole DB file (adjust if it's not in current directory)
+          # To include additional Pi-hole databases, mount each one like similarly:
+          #- ./pihole-FTL-2.db:/app/pihole-FTL-2.db:ro
         environment:
           - PIHOLE_LT_STATS_DB_PATH=/app/pihole-FTL.db  # Path inside the container to the mounted DB file
-          - PIHOLE_LT_STATS_DAYS=31                   # Number of days of data to analyze; change if desired
+          # Provide multiple databases by listing their container paths as a
+          # comma-separated string, e.g.:
+          #- PIHOLE_LT_STATS_DB_PATH=/app/pihole-FTL.db,/app/pihole-FTL-2.db
+          - PIHOLE_LT_STATS_DAYS=31                     # Number of days from now of data to analyze; change if desired
           - PIHOLE_LT_STATS_PORT=9292                   # Port the app listens to inside container; keep in sync with ports mapping
           - PIHOLE_LT_STATS_NCLIENTS=10                 # Number of clients to show in top clients plots
           - PIHOLE_LT_STATS_NDOMAINS=10                 # Number of domains to show in top domains plots
-          - PIHOLE_LT_STATS_TIMEZONE=UTC              # timezone for display
+          - PIHOLE_LT_STATS_TIMEZONE=UTC                # timezone for display
         restart: unless-stopped
     ```
     and run using :
@@ -114,9 +123,23 @@ If you have a copy of your `pihole-FTL.db` file, you can quickly run the dashboa
     ```bash
     python app.py [OPTIONS]
     ```
+
     See the Configuration section below for available options.
 
 5. Open your browser and visit [http://localhost:9292](http://localhost:9292)
+
+  * Examples for python: 
+    > To start the dashboard and visualize a single pihole-FTL database file for the last 15 days, with top 20 clients and top 15 domains on port 9292:
+
+    ```bash
+    python app.py --db_path pihole-FTL.db --days 15 --n_clients 20 --n_domains 15 --port 9292
+    ```
+    To combine two databases, provide paths as comma-separated strings:
+    
+    ```bash
+    python app.py --db_path pihole-FTL.db,pihole-FTL-2.db --days 15 --n_clients 20 --n_domains 15 --port 9292
+    ```
+
 
 ## ⚙️ Configuration
 
@@ -124,7 +147,7 @@ You can configure the application using command-line arguments or environment va
 
 | Command-Line Argument | Environment Variable         | Default Value   | Description                                      |
 |-----------------------|------------------------------|-----------------|--------------------------------------------------|
-| `--db_path PATH`      | `PIHOLE_LT_STATS_DB_PATH`    | `pihole-FTL.db` | Path to the copied Pi-hole database file.        |
+| `--db_path PATH`      | `PIHOLE_LT_STATS_DB_PATH`    | `pihole-FTL.db` | Path to the copied Pi-hole database file. Multiple databases can be combined by providing paths as comma-separated strings.        |
 | `--days DAYS`         | `PIHOLE_LT_STATS_DAYS`       | `31`           | Number of days back from today to analyze.          |
 | `--port PORT`         | `PIHOLE_LT_STATS_PORT`       | `9292`          | Port number to serve the Dash app on.            |
 | `--n_clients N_CLIENTS`         | `PIHOLE_LT_STATS_NCLIENTS`       | `10`          | Number of top clients to show in top clients plots.            |
