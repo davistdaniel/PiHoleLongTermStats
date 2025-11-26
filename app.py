@@ -227,7 +227,7 @@ def _is_valid_regex(pattern):
 def regex_ignore_domains(df,pattern):
     if _is_valid_regex(pattern):
         mask = df['domain'].str.contains(pattern, regex=True, na=False)
-        return df[~mask].reset_index()
+        return df[~mask].reset_index(drop=True)
     else:
         logging.warning(f"Ignored invalid regex pattern for domain exclusion : {pattern}")
         return df
