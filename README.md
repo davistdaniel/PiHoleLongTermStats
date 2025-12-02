@@ -168,6 +168,13 @@ You can configure the application using command-line arguments or environment va
 | `--port`         | `PIHOLE_LT_STATS_TIMEZONE`       | `UTC`          | Timezone for displaying times in the dashboard.            |
 | `--ignore-domains` | `PIHOLE_LT_STATS_IGNORE_DOMAINS` | `""` | Comma-separated regex patterns to exclude domains from from stats (e.g to exlcude all .local domains, use ".*\.local") |
 
+## 🧑‍💻 Contributing
+
+Any contribution, feature ideas or bug fixes are always welcome.
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=davistdaniel/PiHoleLongTermStats&type=date&legend=top-left)](https://www.star-history.com/#davistdaniel/PiHoleLongTermStats&type=date&legend=top-left)
 
 ## Supported metrics
 | Metric | Description |
@@ -200,10 +207,6 @@ You can configure the application using command-line arguments or environment va
 | Average Time Between Blocked Queries | Average interval between consecutive blocked queries. |
 | Average Time Between Allowed Queries | Average interval between consecutive allowed queries. |
 
-
-## 🧑‍💻 Contributing
-
-Any contribution, feature ideas or bug fixes are always welcome.
 
 ## 📄 License
 [MIT](LICENSE)
