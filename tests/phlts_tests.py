@@ -7,8 +7,9 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 import tempfile
 import shutil
+import pandas.testing as pdt
 
-from app import connect_to_sql,probe_sample_df,get_timestamp_range
+from app import connect_to_sql,probe_sample_df,get_timestamp_range,read_pihole_ftl_db,_is_valid_regex,regex_ignore_domains,preprocess_df
 
 @pytest.fixture(scope="session")
 def dummy_df():
@@ -92,20 +93,109 @@ def test_probe_sample_df(dummy_df):
     assert str(oldest_ts) == str(pd.to_datetime(df1["timestamp"].iloc[0],unit='s', utc=True))
     conn.close()
 
-def test_no_data_range(dummy_df):
-    _, _, df1, _ = dummy_df
-    
+def test_no_data_range():
     days=31
     start_date=None
     end_date=None
     timezone="UTC"
     tz = ZoneInfo(timezone)
-    end_dt = datetime.now(tz)
-    start_dt = end_dt - timedelta(days=days)
+    expected_end_dt = datetime.now(tz)
+    expected_start_dt = expected_end_dt - timedelta(days=days)
     
     start_timestamp,end_timestamp = get_timestamp_range(days=days,start_date=start_date,end_date=end_date,timezone=timezone)
 
-    assert end_timestamp == int(end_dt.astimezone(ZoneInfo("UTC")).timestamp())
-    assert start_timestamp == int(start_dt.astimezone(ZoneInfo("UTC")).timestamp())
+    assert end_timestamp == int(expected_end_dt.astimezone(ZoneInfo("UTC")).timestamp())
+    assert start_timestamp == int(expected_start_dt.astimezone(ZoneInfo("UTC")).timestamp())
 
+def test_with_date_range():
+    days = 31  
+    start_date = "2024-01-01"
+    end_date = "2024-01-10"
+    timezone = "UTC"
+    
+    start_timestamp, end_timestamp = get_timestamp_range(
+        days=days,
+        start_date=start_date,
+        end_date=end_date,
+        timezone=timezone
+    )
+    
+    tz = ZoneInfo(timezone)
+    expected_start_dt = datetime(2024, 1, 1, 0, 0, 0, tzinfo=tz)
+    expected_end_dt = datetime(2024, 1, 11, 0, 0, 0, tzinfo=tz)
+    
+    assert start_timestamp == int(expected_start_dt.timestamp())
+    assert end_timestamp == int(expected_end_dt.timestamp())
 
+def test_read_pihole_ftl_db_single_df(dummy_df):
+
+    db1, _, df1, _ = dummy_df
+    df1_mod = df1.drop(columns=["forward","additional_info","reply_type","dnssec","list_id","ede"])
+    conn = connect_to_sql(db1)
+    chunksize, _, _ = probe_sample_df(conn)
+    df = pd.concat(read_pihole_ftl_db(db_paths=[db1],chunksize=[chunksize],start_date=None,end_date=None,days=31,timezone="UTC"))
+    conn.close()
+    pdt.assert_frame_equal(df, df1_mod, check_dtype=False, check_like=True)
+
+def test_read_pihole_ftl_db_multiple_df(dummy_df):
+
+    db1, db2, df1, df2 = dummy_df
+    df1_mod = df1.drop(columns=["forward","additional_info","reply_type","dnssec","list_id","ede"])
+    df2_mod = df2.drop(columns=["forward","additional_info","reply_type","dnssec","list_id","ede"])
+    db_paths = [db1, db2]
+    conn = connect_to_sql(db1)
+    chunksize, _, _ = probe_sample_df(conn)
+    conn.close()
+    df = pd.concat(read_pihole_ftl_db(db_paths=db_paths,chunksize=[chunksize,chunksize],start_date=None,end_date=None,days=31,timezone="UTC"))
+    pdt.assert_frame_equal(df, pd.concat((df1_mod,df2_mod)), check_dtype=False, check_like=True)
+
+def test_read_pihole_ftl_db_with_date_range(dummy_df):
+    
+    db1, _, df1, _ = dummy_df
+    df1_mod = df1.drop(columns=["forward", "additional_info", "reply_type", "dnssec", "list_id", "ede"])
+    
+    min_timestamp = df1['timestamp'].min()
+    max_timestamp = df1['timestamp'].max()
+    
+    min_date = pd.Timestamp(min_timestamp, unit='s', tz='UTC').date()
+    max_date = pd.Timestamp(max_timestamp, unit='s', tz='UTC').date()
+    
+    start_date = min_date.strftime('%Y-%m-%d')
+    end_date = max_date.strftime('%Y-%m-%d')
+    
+    conn = connect_to_sql(db1)
+    chunksize, _, _ = probe_sample_df(conn)
+    conn.close()
+    
+    df = pd.concat(read_pihole_ftl_db(
+        db_paths=[db1],
+        chunksize=[chunksize],
+        start_date=start_date,
+        end_date=end_date,
+        days=31,
+        timezone="UTC"
+    ))
+    
+    pdt.assert_frame_equal(df, df1_mod, check_dtype=False, check_like=True)
+
+def test_is_valid_regex():
+    assert _is_valid_regex("*test") is False
+    assert _is_valid_regex(".*\.local") is True
+    
+def test_regex_ignore_domains(dummy_df):
+
+    _, _, df1, _ = dummy_df
+    
+    df_test1 = regex_ignore_domains(df1,"*test") # should return the df unchanged
+    df_test2 = regex_ignore_domains(df1,".*blocked.*")
+    mask = df1['domain'].str.contains(".*blocked.*", regex=True, na=False)
+    df1_expected = df1[~mask].reset_index(drop=True)
+
+    pdt.assert_frame_equal(df1, df_test1, check_dtype=False, check_like=True)
+    pdt.assert_frame_equal(df1_expected, df_test2, check_dtype=False, check_like=True)
+
+def test_preprocess_df(dummy_df):
+
+    _, _, df1, _ = dummy_df
+
+    df_test = preprocess_df(df1,timezone="UTC")
