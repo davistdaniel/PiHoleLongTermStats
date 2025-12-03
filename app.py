@@ -184,14 +184,13 @@ def get_timestamp_range(days,start_date,end_date,timezone):
 
 def read_pihole_ftl_db(
     db_paths,
-    conn,
     days=31,
     start_date=None,
     end_date=None,
     chunksize=None,
     timezone="UTC",
 ):
-    """Read the PiHole FTL database lazily"""
+    """Read the PiHole FTL database"""
 
     start_timestamp,end_timestamp = get_timestamp_range(days,start_date,end_date,timezone)
     
@@ -734,7 +733,6 @@ def serve_layout(
     df = pd.concat(
         read_pihole_ftl_db(
             db_paths,
-            conn,
             days=days,
             chunksize=chunksize_list,
             start_date=start_date,
