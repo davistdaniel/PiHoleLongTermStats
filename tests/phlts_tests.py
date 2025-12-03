@@ -3,29 +3,31 @@ import sqlite3
 import pandas as pd
 import numpy as np
 from pathlib import Path
-# from datetime import datetime, timedelta
-# from zoneinfo import ZoneInfo
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 import tempfile
 import shutil
 
-from app import connect_to_sql
+from app import connect_to_sql,probe_sample_df,get_timestamp_range
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def dummy_df():
     # Define columns
-    cols = ['id', 'timestamp', 'type', 'status', 'domain', 'client', 'forward',
-        'additional_info', 'reply_type', 'reply_time', 'dnssec', 'list_id',
-        'ede']
+    # cols = ['id', 'timestamp', 'type', 'status', 'domain', 'client', 'forward',
+    #     'additional_info', 'reply_type', 'reply_time', 'dnssec', 'list_id',
+    #     'ede']
 
 
     def make_dummy_df(seed):
         rng = np.random.default_rng(seed)
         n = 44641
-        end = pd.Timestamp.today(tz="UTC")            # today in UTC
-        start = end - pd.DateOffset(months=1)         # one month before today
-        all_ts = pd.date_range(start, end, freq="60s")
-        timestamps = rng.choice(all_ts, n)
-        timestamps_unix = pd.to_datetime(timestamps).astype('int64') // 1_000_000_000
+        # define start/end
+        today = pd.Timestamp.today(tz="UTC").normalize()
+        previous_month = today-pd.DateOffset(month=today.month-1)
+        unix_today = int(today.timestamp())
+        unix_previous_month = int(previous_month.timestamp())
+        timestamps_unix = np.linspace(unix_previous_month,unix_today,n)
+        timestamps_unix = np.sort(timestamps_unix)
         allowed_statuses = [2, 3, 12, 13, 14, 17]
         blocked_statuses = [1, 4, 5, 6, 7, 8, 9, 10, 11, 15, 16, 18]
         status = rng.choice(allowed_statuses + blocked_statuses, n)
@@ -64,20 +66,46 @@ def dummy_df():
         df.to_sql("queries", conn, index=False)
         conn.close()
     
-    yield str(out1), str(out2)
+    yield str(out1), str(out2),df1,df2
     
-
     shutil.rmtree(temp_dir)
 
-class TestDatabaseConnection:
-    def test_connect_existing_database(self,dummy_df):
-        """Test connection to valid db path"""
-        db1,_ = dummy_df
-        conn = connect_to_sql(db1)
-        assert conn is not None
-        conn.close()
+def test_connect_existing_database(dummy_df):
+    """Test connection to valid db path"""
+    db1, _, _, _ = dummy_df
+    conn = connect_to_sql(db1)
+    assert conn is not None
+    conn.close()
+
+def test_connect_to_nonexistent_db():
+    """Test connection to valid db path"""
+    with pytest.raises(FileNotFoundError):
+        connect_to_sql("123non_existent_ftl123.db")
+
+def test_probe_sample_df(dummy_df):
+    db1, _, df1, _ = dummy_df
+    conn = connect_to_sql(db1)
+    chunksize, latest_ts, oldest_ts = probe_sample_df(conn)
+    assert isinstance(chunksize, int)
+    assert chunksize > 0
+    assert str(latest_ts) == str(pd.to_datetime(df1["timestamp"].iloc[-1],unit='s', utc=True))
+    assert str(oldest_ts) == str(pd.to_datetime(df1["timestamp"].iloc[0],unit='s', utc=True))
+    conn.close()
+
+def test_no_data_range(dummy_df):
+    _, _, df1, _ = dummy_df
     
-    def test_connect_to_nonexistent_db(self):
-        """Test connection to valid db path"""
-        with pytest.raises(FileNotFoundError):
-            connect_to_sql("123non_existent_ftl123.db")
+    days=31
+    start_date=None
+    end_date=None
+    timezone="UTC"
+    tz = ZoneInfo(timezone)
+    end_dt = datetime.now(tz)
+    start_dt = end_dt - timedelta(days=days)
+    
+    start_timestamp,end_timestamp = get_timestamp_range(days=days,start_date=start_date,end_date=end_date,timezone=timezone)
+
+    assert end_timestamp == int(end_dt.astimezone(ZoneInfo("UTC")).timestamp())
+    assert start_timestamp == int(start_dt.astimezone(ZoneInfo("UTC")).timestamp())
+
+
