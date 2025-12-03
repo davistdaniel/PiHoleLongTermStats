@@ -17,7 +17,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-__version__ = "0.1.4"
+__version__ = "0.1.5"
 
 # logging setup
 logging.basicConfig(
@@ -27,67 +27,69 @@ logging.basicConfig(
 
 ####### command line options #######
 
-# initialize parser
-parser = argparse.ArgumentParser(
-    description="Generate an interactive dashboard for Pi-hole query statistics."
-)
-parser.add_argument(
-    "--days",
-    type=int,
-    default=int(os.getenv("PIHOLE_LT_STATS_DAYS", 31)),
-    help="Number of days of data to analyze. Env: PIHOLE_LT_STATS_DAYS",
-)
-parser.add_argument(
-    "--db_path",
-    type=str,
-    default=os.getenv("PIHOLE_LT_STATS_DB_PATH", "pihole-FTL.db"),
-    help="Path to a copy of the PiHole FTL database. Env: PIHOLE_LT_STATS_DB_PATH",
-)
-parser.add_argument(
-    "--port",
-    type=int,
-    default=int(os.getenv("PIHOLE_LT_STATS_PORT", 9292)),
-    help="Port to serve the dash app at. Env: PIHOLE_LT_STATS_PORT",
-)
+if __name__ == "__main__":
 
-parser.add_argument(
-    "--n_clients",
-    type=int,
-    default=int(os.getenv("PIHOLE_LT_STATS_NCLIENTS", 10)),
-    help="Number of top clients to show in top clients plots. Env: PIHOLE_LT_STATS_NCLIENTS",
-)
+    # initialize parser
+    parser = argparse.ArgumentParser(
+        description="Generate an interactive dashboard for Pi-hole query statistics."
+    )
+    parser.add_argument(
+        "--days",
+        type=int,
+        default=int(os.getenv("PIHOLE_LT_STATS_DAYS", 31)),
+        help="Number of days of data to analyze. Env: PIHOLE_LT_STATS_DAYS",
+    )
+    parser.add_argument(
+        "--db_path",
+        type=str,
+        default=os.getenv("PIHOLE_LT_STATS_DB_PATH", "pihole-FTL.db"),
+        help="Path to a copy of the PiHole FTL database. Env: PIHOLE_LT_STATS_DB_PATH",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=int(os.getenv("PIHOLE_LT_STATS_PORT", 9292)),
+        help="Port to serve the dash app at. Env: PIHOLE_LT_STATS_PORT",
+    )
 
-parser.add_argument(
-    "--n_domains",
-    type=int,
-    default=int(os.getenv("PIHOLE_LT_STATS_NDOMAINS", 10)),
-    help="Number of top domains to show in top domains plots. Env: PIHOLE_LT_STATS_NDOMAINS",
-)
+    parser.add_argument(
+        "--n_clients",
+        type=int,
+        default=int(os.getenv("PIHOLE_LT_STATS_NCLIENTS", 10)),
+        help="Number of top clients to show in top clients plots. Env: PIHOLE_LT_STATS_NCLIENTS",
+    )
 
-parser.add_argument(
-    "--timezone",
-    type=str,
-    default=os.getenv("PIHOLE_LT_STATS_TIMEZONE", "UTC"),
-    help="Timezone for display (e.g., 'America/New_York', 'Europe/London'). Env: PIHOLE_LT_STATS_TIMEZONE",
-)
+    parser.add_argument(
+        "--n_domains",
+        type=int,
+        default=int(os.getenv("PIHOLE_LT_STATS_NDOMAINS", 10)),
+        help="Number of top domains to show in top domains plots. Env: PIHOLE_LT_STATS_NDOMAINS",
+    )
 
-parser.add_argument(
-    "--ignore_domains",
-    type=str,
-    default=os.getenv("PIHOLE_LT_STATS_IGNORE_DOMAINS", ""),
-    help="Comma-separated list of domains or regex patterns to ignore. Default: no domains ignored. Env: PIHOLE_LT_STATS_IGNORE_DOMAINS",
-)
+    parser.add_argument(
+        "--timezone",
+        type=str,
+        default=os.getenv("PIHOLE_LT_STATS_TIMEZONE", "UTC"),
+        help="Timezone for display (e.g., 'America/New_York', 'Europe/London'). Env: PIHOLE_LT_STATS_TIMEZONE",
+    )
 
-args = parser.parse_args()
+    parser.add_argument(
+        "--ignore_domains",
+        type=str,
+        default=os.getenv("PIHOLE_LT_STATS_IGNORE_DOMAINS", ""),
+        help="Comma-separated list of domains or regex patterns to ignore. Default: no domains ignored. Env: PIHOLE_LT_STATS_IGNORE_DOMAINS",
+    )
 
-logging.info("Setting environment variables:")
-logging.info(f"PIHOLE_LT_STATS_DAYS : {args.days}")
-logging.info(f"PIHOLE_LT_STATS_DB_PATH : {args.db_path}")
-logging.info(f"PIHOLE_LT_STATS_PORT : {args.port}")
-logging.info(f"PIHOLE_LT_STATS_NCLIENTS : {args.n_clients}")
-logging.info(f"PIHOLE_LT_STATS_NDOMAINS : {args.n_domains}")
-logging.info(f"PIHOLE_LT_STATS_TIMEZONE : {args.timezone}")
-logging.info(f"PIHOLE_LT_STATS_IGNORE_DOMAINS : {args.ignore_domains}")
+    args = parser.parse_args()
+
+    logging.info("Setting environment variables:")
+    logging.info(f"PIHOLE_LT_STATS_DAYS : {args.days}")
+    logging.info(f"PIHOLE_LT_STATS_DB_PATH : {args.db_path}")
+    logging.info(f"PIHOLE_LT_STATS_PORT : {args.port}")
+    logging.info(f"PIHOLE_LT_STATS_NCLIENTS : {args.n_clients}")
+    logging.info(f"PIHOLE_LT_STATS_NDOMAINS : {args.n_domains}")
+    logging.info(f"PIHOLE_LT_STATS_TIMEZONE : {args.timezone}")
+    logging.info(f"PIHOLE_LT_STATS_IGNORE_DOMAINS : {args.ignore_domains}")
 
 
 
@@ -138,16 +140,7 @@ def probe_sample_df(conn):
     return chunksize, latest_ts, oldest_ts
 
 
-def read_pihole_ftl_db(
-    db_paths,
-    conn,
-    days=31,
-    start_date=None,
-    end_date=None,
-    chunksize=None,
-    timezone="UTC",
-):
-    """Read the PiHole FTL database lazily"""
+def get_timestamp_range(days,start_date,end_date,timezone):
 
     try:
         tz = ZoneInfo(timezone)
@@ -175,7 +168,7 @@ def read_pihole_ftl_db(
         )
         end_dt = datetime.now(tz)
         start_dt = end_dt - timedelta(days=days)
-
+    
     logging.info(
         f"Trying to read data from PiHole-FTL database(s) for the period ranging from {start_dt} to {end_dt} (TZ: {timezone})..."
     )
@@ -187,6 +180,21 @@ def read_pihole_ftl_db(
         f"Converted dates ranging from {start_dt} to {end_dt} (TZ: {timezone}) to timestamps in UTC : {start_timestamp} to {end_timestamp}"
     )
 
+    return start_timestamp,end_timestamp
+
+def read_pihole_ftl_db(
+    db_paths,
+    conn,
+    days=31,
+    start_date=None,
+    end_date=None,
+    chunksize=None,
+    timezone="UTC",
+):
+    """Read the PiHole FTL database lazily"""
+
+    start_timestamp,end_timestamp = get_timestamp_range(days,start_date,end_date,timezone)
+    
     logging.info(
         f"Reading data from PiHole-FTL database(s) for timestamps ranging from {start_timestamp} to {end_timestamp} (TZ: UTC)..."
     )
@@ -1427,64 +1435,66 @@ logging.info("Initializing PiHoleLongTermStats Dashboard")
 app = Dash(__name__)
 app.title = "PiHoleLongTermStats"
 
-if isinstance(args.db_path, str):
-    db_paths = args.db_path.split(",")
+if __name__ == "__main__":
 
-chunksize_list, latest_ts_list, oldest_ts_list = (
-    [],
-    [],
-    [],
-)
+    if isinstance(args.db_path, str):
+        db_paths = args.db_path.split(",")
 
-for db in db_paths:
-    conn = connect_to_sql(db)
-    chunksize, latest_ts, oldest_ts = probe_sample_df(conn)
-    chunksize_list.append(chunksize)
-    latest_ts_list.append(latest_ts.tz_convert(ZoneInfo(args.timezone)))
-    oldest_ts_list.append(oldest_ts.tz_convert(ZoneInfo(args.timezone)))
-    conn.close()
+    chunksize_list, latest_ts_list, oldest_ts_list = (
+        [],
+        [],
+        [],
+    )
 
-logging.info(
-    f"Latest date-time from all databases : {max(latest_ts_list)} (TZ: {args.timezone})"
-)
-logging.info(
-    f"Oldest date-time from all databases : {min(oldest_ts_list)} (TZ: {args.timezone})"
-)
+    for db in db_paths:
+        conn = connect_to_sql(db)
+        chunksize, latest_ts, oldest_ts = probe_sample_df(conn)
+        chunksize_list.append(chunksize)
+        latest_ts_list.append(latest_ts.tz_convert(ZoneInfo(args.timezone)))
+        oldest_ts_list.append(oldest_ts.tz_convert(ZoneInfo(args.timezone)))
+        conn.close()
 
-# Initialize with data, no date range initially.
-PHLTS_CALLBACK_DATA, initial_layout = serve_layout(
-    db_path=args.db_path,
-    days=args.days,
-    max_date_available=max(latest_ts_list),
-    min_date_available=min(oldest_ts_list),
-    chunksize_list=chunksize_list,
-    start_date=None,
-    end_date=None,
-    timezone=args.timezone,
-    ignore_domains=args.ignore_domains
-)
+    logging.info(
+        f"Latest date-time from all databases : {max(latest_ts_list)} (TZ: {args.timezone})"
+    )
+    logging.info(
+        f"Oldest date-time from all databases : {min(oldest_ts_list)} (TZ: {args.timezone})"
+    )
 
-logging.info("Setting initial layout...")
+    # Initialize with data, no date range initially.
+    PHLTS_CALLBACK_DATA, initial_layout = serve_layout(
+        db_path=args.db_path,
+        days=args.days,
+        max_date_available=max(latest_ts_list),
+        min_date_available=min(oldest_ts_list),
+        chunksize_list=chunksize_list,
+        start_date=None,
+        end_date=None,
+        timezone=args.timezone,
+        ignore_domains=args.ignore_domains
+    )
 
-app.layout = html.Div(
-    [
-        dcc.Loading(
-            id="loading-main",
-            type="graph",
-            fullscreen=True,
-            children=[
-                html.Div(
-                    id="page-container",
-                    children=initial_layout.children,
-                    className="container",
-                )
-            ],
-        )
-    ]
-)
+    logging.info("Setting initial layout...")
 
-del initial_layout
-gc.collect()
+    app.layout = html.Div(
+        [
+            dcc.Loading(
+                id="loading-main",
+                type="graph",
+                fullscreen=True,
+                children=[
+                    html.Div(
+                        id="page-container",
+                        children=initial_layout.children,
+                        className="container",
+                    )
+                ],
+            )
+        ]
+    )
+
+    del initial_layout
+    gc.collect()
 
 
 @app.callback(
@@ -1498,6 +1508,27 @@ def reload_page(n_clicks, start_date, end_date):
     global PHLTS_CALLBACK_DATA
 
     logging.info(f"Reload button clicked. Selected date range: {start_date, end_date}")
+
+    chunksize_list, latest_ts_list, oldest_ts_list = (
+        [],
+        [],
+        [],
+    )
+
+    for db in db_paths:
+        conn = connect_to_sql(db)
+        chunksize, latest_ts, oldest_ts = probe_sample_df(conn)
+        chunksize_list.append(chunksize)
+        latest_ts_list.append(latest_ts.tz_convert(ZoneInfo(args.timezone)))
+        oldest_ts_list.append(oldest_ts.tz_convert(ZoneInfo(args.timezone)))
+        conn.close()
+
+    logging.info(
+        f"Latest date-time from all databases : {max(latest_ts_list)} (TZ: {args.timezone})"
+    )
+    logging.info(
+        f"Oldest date-time from all databases : {min(oldest_ts_list)} (TZ: {args.timezone})"
+    )
 
     PHLTS_CALLBACK_DATA, layout = serve_layout(
         db_path=args.db_path,

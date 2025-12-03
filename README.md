@@ -210,5 +210,3 @@ Any contribution, feature ideas or bug fixes are always welcome.
 
 ## 📄 License
 [MIT](LICENSE)
-
-

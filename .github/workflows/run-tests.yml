@@ -1,0 +1,31 @@
+name: Run tests for piholelongtermstats
+
+on:
+  push:
+    paths:
+      - "app.py"
+      - "tests/**"
+      - ".github/workflows/run-tests.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-cov
+
+      - name: Run tests with coverage
+        run: |
+          python -m pytest tests/phlts_tests.py --cov=app --cov-report term-missing

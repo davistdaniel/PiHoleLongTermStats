@@ -1,14 +1,9 @@
 name: Publish docker image for PiHoleLongTermStats
 
 on:
-  push:
-    branches: [main]
-    paths-ignore:
-      - "README.md"
-      - "docker-compose.yml"
   release:
     types: [published]
-
+    
 jobs:
   docker:
     runs-on: ubuntu-latest
