@@ -1,4 +1,4 @@
-# Pi Hole Long Term Statistics v.0.1.4
+# Pi Hole Long Term Statistics v.0.1.5
 
 A dashboard built with **Dash** and **Plotly** to explore long-term DNS query data from **Pi-hole v.6** FTL database files. Visualize allowed vs blocked domains, top clients, and query trends over time. If you find this project helpful, please consider giving it a ⭐ to show your support.
 
