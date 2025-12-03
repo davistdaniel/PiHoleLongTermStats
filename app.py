@@ -17,7 +17,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-__version__ = "0.1.4"
+__version__ = "0.1.5"
 
 # logging setup
 logging.basicConfig(
@@ -140,16 +140,7 @@ def probe_sample_df(conn):
     return chunksize, latest_ts, oldest_ts
 
 
-def read_pihole_ftl_db(
-    db_paths,
-    conn,
-    days=31,
-    start_date=None,
-    end_date=None,
-    chunksize=None,
-    timezone="UTC",
-):
-    """Read the PiHole FTL database lazily"""
+def get_timestamp_range(days,start_date,end_date,timezone):
 
     try:
         tz = ZoneInfo(timezone)
@@ -177,7 +168,7 @@ def read_pihole_ftl_db(
         )
         end_dt = datetime.now(tz)
         start_dt = end_dt - timedelta(days=days)
-
+    
     logging.info(
         f"Trying to read data from PiHole-FTL database(s) for the period ranging from {start_dt} to {end_dt} (TZ: {timezone})..."
     )
@@ -189,6 +180,21 @@ def read_pihole_ftl_db(
         f"Converted dates ranging from {start_dt} to {end_dt} (TZ: {timezone}) to timestamps in UTC : {start_timestamp} to {end_timestamp}"
     )
 
+    return start_timestamp,end_timestamp
+
+def read_pihole_ftl_db(
+    db_paths,
+    conn,
+    days=31,
+    start_date=None,
+    end_date=None,
+    chunksize=None,
+    timezone="UTC",
+):
+    """Read the PiHole FTL database lazily"""
+
+    start_timestamp,end_timestamp = get_timestamp_range(days,start_date,end_date,timezone)
+    
     logging.info(
         f"Reading data from PiHole-FTL database(s) for timestamps ranging from {start_timestamp} to {end_timestamp} (TZ: UTC)..."
     )
@@ -1502,6 +1508,27 @@ def reload_page(n_clicks, start_date, end_date):
     global PHLTS_CALLBACK_DATA
 
     logging.info(f"Reload button clicked. Selected date range: {start_date, end_date}")
+
+    chunksize_list, latest_ts_list, oldest_ts_list = (
+        [],
+        [],
+        [],
+    )
+
+    for db in db_paths:
+        conn = connect_to_sql(db)
+        chunksize, latest_ts, oldest_ts = probe_sample_df(conn)
+        chunksize_list.append(chunksize)
+        latest_ts_list.append(latest_ts.tz_convert(ZoneInfo(args.timezone)))
+        oldest_ts_list.append(oldest_ts.tz_convert(ZoneInfo(args.timezone)))
+        conn.close()
+
+    logging.info(
+        f"Latest date-time from all databases : {max(latest_ts_list)} (TZ: {args.timezone})"
+    )
+    logging.info(
+        f"Oldest date-time from all databases : {min(oldest_ts_list)} (TZ: {args.timezone})"
+    )
 
     PHLTS_CALLBACK_DATA, layout = serve_layout(
         db_path=args.db_path,
