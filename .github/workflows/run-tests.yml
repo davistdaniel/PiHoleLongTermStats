@@ -5,6 +5,7 @@ on:
     paths:
       - "app.py"
       - "tests/**"
+      - ".github/workflows/run-tests.yml"
 
 jobs:
   test:
