@@ -614,8 +614,8 @@ def generate_plot_data(df):
     def shorten(s):
         return s if len(s) <= 45 else f"{s[:20]}...{s[-20:]}"
 
-    def wrap_label(label, width=40):
-        return "<br>".join([label[i : i + width] for i in range(0, len(label), width)])
+    # def wrap_label(label, width=40):
+    #     return "<br>".join([label[i : i + width] for i in range(0, len(label), width)])
 
     # plot data for top clients
     top_clients = df["client"].value_counts().nlargest(args.n_clients).index
@@ -681,8 +681,10 @@ def generate_plot_data(df):
     top_domains = (
         df["domain"].value_counts().nlargest(min(args.n_domains, args.n_clients)).index
     )
-    df_top = df[df["client"].isin(top_clients) & df["domain"].isin(top_domains)]
-    df_top["domain"] = df_top["domain"].apply(wrap_label)
+
+    df_top = df.loc[df["client"].isin(top_clients) & df["domain"].isin(top_domains)].copy()
+    df_top.loc[:, "domain"] = df_top["domain"].apply(shorten)
+
     client_domain_scatter_df = (
         df_top.groupby(["client", "domain", "status_type"])
         .size()
@@ -1726,201 +1728,201 @@ if __name__ == "__main__":
     gc.collect()
 
 
-@app.callback(
-    Output("page-container", "children"),
-    Input("reload-button", "n_clicks"),
-    State("date-picker-range", "start_date"),
-    State("date-picker-range", "end_date"),
-    prevent_initial_call=False,
-)
-def reload_page(n_clicks, start_date, end_date):
-    global PHLTS_CALLBACK_DATA
-
-    logging.info(f"Reload button clicked. Selected date range: {start_date, end_date}")
-
-    chunksize_list, latest_ts_list, oldest_ts_list = (
-        [],
-        [],
-        [],
+    @app.callback(
+        Output("page-container", "children"),
+        Input("reload-button", "n_clicks"),
+        State("date-picker-range", "start_date"),
+        State("date-picker-range", "end_date"),
+        prevent_initial_call=False,
     )
+    def reload_page(n_clicks, start_date, end_date):
+        global PHLTS_CALLBACK_DATA
 
-    for db in db_paths:
-        conn = connect_to_sql(db)
-        chunksize, latest_ts, oldest_ts = probe_sample_df(conn)
-        chunksize_list.append(chunksize)
-        latest_ts_list.append(latest_ts.tz_convert(ZoneInfo(args.timezone)))
-        oldest_ts_list.append(oldest_ts.tz_convert(ZoneInfo(args.timezone)))
-        conn.close()
+        logging.info(f"Reload button clicked. Selected date range: {start_date, end_date}")
 
-    logging.info(
-        f"Latest date-time from all databases : {max(latest_ts_list)} (TZ: {args.timezone})"
+        chunksize_list, latest_ts_list, oldest_ts_list = (
+            [],
+            [],
+            [],
+        )
+
+        for db in db_paths:
+            conn = connect_to_sql(db)
+            chunksize, latest_ts, oldest_ts = probe_sample_df(conn)
+            chunksize_list.append(chunksize)
+            latest_ts_list.append(latest_ts.tz_convert(ZoneInfo(args.timezone)))
+            oldest_ts_list.append(oldest_ts.tz_convert(ZoneInfo(args.timezone)))
+            conn.close()
+
+        logging.info(
+            f"Latest date-time from all databases : {max(latest_ts_list)} (TZ: {args.timezone})"
+        )
+        logging.info(
+            f"Oldest date-time from all databases : {min(oldest_ts_list)} (TZ: {args.timezone})"
+        )
+
+        PHLTS_CALLBACK_DATA, layout = serve_layout(
+            db_path=args.db_path,
+            days=args.days,
+            max_date_available=max(latest_ts_list),
+            min_date_available=min(oldest_ts_list),
+            chunksize_list=chunksize_list,
+            start_date=start_date,
+            end_date=end_date,
+            timezone=args.timezone,
+            ignore_domains=args.ignore_domains,
+        )
+
+        return layout.children
+
+
+    @app.callback(
+        Output("filtered-view", "figure"),
+        Input("client-filter", "value"),
+        Input("reload-button", "n_clicks"),
     )
-    logging.info(
-        f"Oldest date-time from all databases : {min(oldest_ts_list)} (TZ: {args.timezone})"
-    )
+    def update_filtered_view(client, n_clicks):
+        logging.info("Updating Queries over time plot...")
+        global PHLTS_CALLBACK_DATA
 
-    PHLTS_CALLBACK_DATA, layout = serve_layout(
-        db_path=args.db_path,
-        days=args.days,
-        max_date_available=max(latest_ts_list),
-        min_date_available=min(oldest_ts_list),
-        chunksize_list=chunksize_list,
-        start_date=start_date,
-        end_date=end_date,
-        timezone=args.timezone,
-        ignore_domains=args.ignore_domains,
-    )
+        dff_grouped = PHLTS_CALLBACK_DATA["hourly_agg"]
 
-    return layout.children
+        if client:
+            logging.info(f"Selected client : {client}")
+            dff_grouped = dff_grouped[dff_grouped["client"] == client]
+            title_text = f"DNS Queries Over Time for {client}"
+        else:
+            dff_grouped = (
+                dff_grouped.groupby(["timestamp", "status_type"])["count"]
+                .sum()
+                .reset_index()
+            )
+            title_text = "DNS Queries Over Time for All Clients"
 
-
-@app.callback(
-    Output("filtered-view", "figure"),
-    Input("client-filter", "value"),
-    Input("reload-button", "n_clicks"),
-)
-def update_filtered_view(client, n_clicks):
-    logging.info("Updating Queries over time plot...")
-    global PHLTS_CALLBACK_DATA
-
-    dff_grouped = PHLTS_CALLBACK_DATA["hourly_agg"]
-
-    if client:
-        logging.info(f"Selected client : {client}")
-        dff_grouped = dff_grouped[dff_grouped["client"] == client]
-        title_text = f"DNS Queries Over Time for {client}"
-    else:
+        # Fill missing data with 0
+        all_times = pd.date_range(
+            dff_grouped["timestamp"].min(), dff_grouped["timestamp"].max(), freq="h"
+        )
+        status_types = ["Other", "Allowed", "Blocked"]
+        full_index = pd.MultiIndex.from_product(
+            [all_times, status_types], names=["timestamp", "status_type"]
+        )
         dff_grouped = (
-            dff_grouped.groupby(["timestamp", "status_type"])["count"]
-            .sum()
+            dff_grouped.set_index(["timestamp", "status_type"])
+            .reindex(full_index, fill_value=0)
             .reset_index()
         )
-        title_text = "DNS Queries Over Time for All Clients"
-
-    # Fill missing data with 0
-    all_times = pd.date_range(
-        dff_grouped["timestamp"].min(), dff_grouped["timestamp"].max(), freq="h"
-    )
-    status_types = ["Other", "Allowed", "Blocked"]
-    full_index = pd.MultiIndex.from_product(
-        [all_times, status_types], names=["timestamp", "status_type"]
-    )
-    dff_grouped = (
-        dff_grouped.set_index(["timestamp", "status_type"])
-        .reindex(full_index, fill_value=0)
-        .reset_index()
-    )
-    dff_grouped["status_type"] = pd.Categorical(
-        dff_grouped["status_type"], categories=status_types, ordered=True
-    )
-    dff_grouped = dff_grouped.sort_values("status_type")
-
-    fig = px.area(
-        dff_grouped,
-        x="timestamp",
-        y="count",
-        color="status_type",
-        line_group="status_type",
-        title=title_text,
-        color_discrete_map={
-            "Allowed": "#10b981",
-            "Blocked": "#ef4444",
-            "Other": "#b99529",
-        },
-        template="plotly_white",
-        labels={"timestamp": "Date", "count": "Count", "status_type": "Query Status"},
-    )
-
-    fig.update_traces(
-        mode="lines",
-        line_shape="spline",
-        line=dict(width=0.5),
-        stackgroup="one",
-    )
-
-    fig.update_layout(
-        legend=dict(orientation="h", yanchor="top", y=-0.4, xanchor="center", x=0.5)
-    )
-
-    del dff_grouped
-    gc.collect()
-
-    return fig
-
-
-@app.callback(
-    Output("client-activity-view", "figure"),
-    Input("client-filter", "value"),
-    Input("reload-button", "n_clicks"),
-)
-def update_client_activity(client, n_clicks):
-    logging.info("Updating Client activity over time plot...")
-    global PHLTS_CALLBACK_DATA
-
-    dff_grouped = PHLTS_CALLBACK_DATA["hourly_agg"]
-    top_clients = PHLTS_CALLBACK_DATA["top_clients"]
-
-    if client:
-        logging.info(f"Selected client : {client}")
-        dff_grouped = dff_grouped[dff_grouped["client"] == client]
-        dff_grouped = (
-            dff_grouped.groupby(["timestamp", "client"])["count"].sum().reset_index()
+        dff_grouped["status_type"] = pd.Categorical(
+            dff_grouped["status_type"], categories=status_types, ordered=True
         )
-        title_text = f"Activity for {client}"
-        clients_to_show = [client]
-    else:
-        dff_grouped = dff_grouped[dff_grouped["client"].isin(top_clients)]
-        dff_grouped = (
-            dff_grouped.groupby(["timestamp", "client"])["count"].sum().reset_index()
+        dff_grouped = dff_grouped.sort_values("status_type")
+
+        fig = px.area(
+            dff_grouped,
+            x="timestamp",
+            y="count",
+            color="status_type",
+            line_group="status_type",
+            title=title_text,
+            color_discrete_map={
+                "Allowed": "#10b981",
+                "Blocked": "#ef4444",
+                "Other": "#b99529",
+            },
+            template="plotly_white",
+            labels={"timestamp": "Date", "count": "Count", "status_type": "Query Status"},
         )
-        title_text = f"Activity for top {args.n_clients} clients"
-        clients_to_show = top_clients
 
-    all_times = pd.date_range(
-        dff_grouped["timestamp"].min(), dff_grouped["timestamp"].max(), freq="h"
+        fig.update_traces(
+            mode="lines",
+            line_shape="spline",
+            line=dict(width=0.5),
+            stackgroup="one",
+        )
+
+        fig.update_layout(
+            legend=dict(orientation="h", yanchor="top", y=-0.4, xanchor="center", x=0.5)
+        )
+
+        del dff_grouped
+        gc.collect()
+
+        return fig
+
+
+    @app.callback(
+        Output("client-activity-view", "figure"),
+        Input("client-filter", "value"),
+        Input("reload-button", "n_clicks"),
     )
-    full_index = pd.MultiIndex.from_product(
-        [all_times, clients_to_show], names=["timestamp", "client"]
-    )
-    pivot_df = (
-        dff_grouped.set_index(["timestamp", "client"])
-        .reindex(full_index, fill_value=0)
-        .reset_index()
-    )
+    def update_client_activity(client, n_clicks):
+        logging.info("Updating Client activity over time plot...")
+        global PHLTS_CALLBACK_DATA
 
-    default_colors = px.colors.qualitative.Plotly
-    client_color_map = dict(zip(top_clients, itertools.cycle(default_colors)))
+        dff_grouped = PHLTS_CALLBACK_DATA["hourly_agg"]
+        top_clients = PHLTS_CALLBACK_DATA["top_clients"]
 
-    fig = px.area(
-        pivot_df,
-        x="timestamp",
-        y="count",
-        color="client",
-        line_group="client",
-        title=title_text,
-        color_discrete_map=client_color_map,
-        template="plotly_white",
-        labels={"timestamp": "Date", "count": "Count", "client": "Client IP"},
-    )
+        if client:
+            logging.info(f"Selected client : {client}")
+            dff_grouped = dff_grouped[dff_grouped["client"] == client]
+            dff_grouped = (
+                dff_grouped.groupby(["timestamp", "client"])["count"].sum().reset_index()
+            )
+            title_text = f"Activity for {client}"
+            clients_to_show = [client]
+        else:
+            dff_grouped = dff_grouped[dff_grouped["client"].isin(top_clients)]
+            dff_grouped = (
+                dff_grouped.groupby(["timestamp", "client"])["count"].sum().reset_index()
+            )
+            title_text = f"Activity for top {args.n_clients} clients"
+            clients_to_show = top_clients
 
-    fig.update_traces(
-        mode="lines",
-        line_shape="spline",
-        line=dict(width=0.2),
-        stackgroup="one",
-        connectgaps=False,
-    )
+        all_times = pd.date_range(
+            dff_grouped["timestamp"].min(), dff_grouped["timestamp"].max(), freq="h"
+        )
+        full_index = pd.MultiIndex.from_product(
+            [all_times, clients_to_show], names=["timestamp", "client"]
+        )
+        pivot_df = (
+            dff_grouped.set_index(["timestamp", "client"])
+            .reindex(full_index, fill_value=0)
+            .reset_index()
+        )
 
-    fig.update_layout(
-        legend=dict(orientation="h", yanchor="top", y=-0.4, xanchor="center", x=0.5)
-    )
+        default_colors = px.colors.qualitative.Plotly
+        client_color_map = dict(zip(top_clients, itertools.cycle(default_colors)))
 
-    del dff_grouped, pivot_df
-    gc.collect()
+        fig = px.area(
+            pivot_df,
+            x="timestamp",
+            y="count",
+            color="client",
+            line_group="client",
+            title=title_text,
+            color_discrete_map=client_color_map,
+            template="plotly_white",
+            labels={"timestamp": "Date", "count": "Count", "client": "Client IP"},
+        )
 
-    return fig
+        fig.update_traces(
+            mode="lines",
+            line_shape="spline",
+            line=dict(width=0.2),
+            stackgroup="one",
+            connectgaps=False,
+        )
+
+        fig.update_layout(
+            legend=dict(orientation="h", yanchor="top", y=-0.4, xanchor="center", x=0.5)
+        )
+
+        del dff_grouped, pivot_df
+        gc.collect()
+
+        return fig
 
 
-# serve
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=args.port, debug=False)
+    # serve
+    if __name__ == "__main__":
+        app.run(host="0.0.0.0", port=args.port, debug=False)
