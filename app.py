@@ -28,7 +28,6 @@ logging.basicConfig(
 ####### command line options #######
 
 if __name__ == "__main__":
-
     # initialize parser
     parser = argparse.ArgumentParser(
         description="Generate an interactive dashboard for Pi-hole query statistics."
@@ -92,7 +91,6 @@ if __name__ == "__main__":
     logging.info(f"PIHOLE_LT_STATS_IGNORE_DOMAINS : {args.ignore_domains}")
 
 
-
 ####### reading the database #######
 def connect_to_sql(db_path):
     """Connect to an SQL database"""
@@ -119,6 +117,7 @@ def probe_sample_df(conn):
     FROM queries LIMIT 5"""
     sample_df = pd.read_sql_query(sample_query, conn)
     sample_df["timestamp"] = pd.to_datetime(sample_df["timestamp"], unit="s")
+
     available_memory = psutil.virtual_memory().available
     memory_per_row = sample_df.memory_usage(deep=True).sum() / len(sample_df)
     safe_memory = available_memory * 0.5
@@ -140,8 +139,7 @@ def probe_sample_df(conn):
     return chunksize, latest_ts, oldest_ts
 
 
-def get_timestamp_range(days,start_date,end_date,timezone):
-
+def get_timestamp_range(days, start_date, end_date, timezone):
     try:
         tz = ZoneInfo(timezone)
     except Exception:
@@ -168,7 +166,7 @@ def get_timestamp_range(days,start_date,end_date,timezone):
         )
         end_dt = datetime.now(tz)
         start_dt = end_dt - timedelta(days=days)
-    
+
     logging.info(
         f"Trying to read data from PiHole-FTL database(s) for the period ranging from {start_dt} to {end_dt} (TZ: {timezone})..."
     )
@@ -180,7 +178,8 @@ def get_timestamp_range(days,start_date,end_date,timezone):
         f"Converted dates ranging from {start_dt} to {end_dt} (TZ: {timezone}) to timestamps in UTC : {start_timestamp} to {end_timestamp}"
     )
 
-    return start_timestamp,end_timestamp
+    return start_timestamp, end_timestamp
+
 
 def read_pihole_ftl_db(
     db_paths,
@@ -192,8 +191,10 @@ def read_pihole_ftl_db(
 ):
     """Read the PiHole FTL database"""
 
-    start_timestamp,end_timestamp = get_timestamp_range(days,start_date,end_date,timezone)
-    
+    start_timestamp, end_timestamp = get_timestamp_range(
+        days, start_date, end_date, timezone
+    )
+
     logging.info(
         f"Reading data from PiHole-FTL database(s) for timestamps ranging from {start_timestamp} to {end_timestamp} (TZ: UTC)..."
     )
@@ -205,7 +206,9 @@ def read_pihole_ftl_db(
     """
 
     for db_idx, db_path in enumerate(db_paths):
-        logging.info(f"Processing database {db_idx + 1}/{len(db_paths)} at {db_path}...")
+        logging.info(
+            f"Processing database {db_idx + 1}/{len(db_paths)} at {db_path}..."
+        )
         conn = connect_to_sql(db_path)
 
         chunk_num = 0
@@ -224,6 +227,7 @@ def read_pihole_ftl_db(
 
 # basic time processing
 
+
 def _is_valid_regex(pattern):
     try:
         re.compile(pattern)
@@ -231,13 +235,17 @@ def _is_valid_regex(pattern):
     except re.error:
         return False
 
-def regex_ignore_domains(df,pattern):
+
+def regex_ignore_domains(df, pattern):
     if _is_valid_regex(pattern):
-        mask = df['domain'].str.contains(pattern, regex=True, na=False)
+        mask = df["domain"].str.contains(pattern, regex=True, na=False)
         return df[~mask].reset_index(drop=True)
     else:
-        logging.warning(f"Ignored invalid regex pattern for domain exclusion : {pattern}")
+        logging.warning(
+            f"Ignored invalid regex pattern for domain exclusion : {pattern}"
+        )
         return df
+
 
 def preprocess_df(df, timezone="UTC"):
     """Pre-process df to generate timestamps, blocked,allowed domains etc."""
@@ -603,6 +611,12 @@ def generate_plot_data(df):
 
     logging.info("Generating plot data...")
 
+    def shorten(s):
+        return s if len(s) <= 45 else f"{s[:20]}...{s[-20:]}"
+
+    def wrap_label(label, width=40):
+        return "<br>".join([label[i : i + width] for i in range(0, len(label), width)])
+
     # plot data for top clients
     top_clients = df["client"].value_counts().nlargest(args.n_clients).index
     top_clients_stacked = (
@@ -625,33 +639,27 @@ def generate_plot_data(df):
     logging.info("Generated plot data for top clients.")
 
     # plot data for allowed and blocked domains
-    def shorten(s):
-        return s if len(s) <= 45 else f"{s[:20]}...{s[-20:]}"
-
-    tmp = df[df["status_type"] == "Blocked"].copy()
-    tmp["domain"] = tmp["domain"].apply(shorten)
+    tmp_blocked = df[df["status_type"] == "Blocked"].copy()
+    tmp_blocked["domain"] = tmp_blocked["domain"].apply(shorten)
 
     blocked_df = (
-        tmp["domain"]
+        tmp_blocked["domain"]
         .value_counts()
         .nlargest(args.n_domains)
         .reset_index()
         .rename(columns={"index": "Count", "domain": "Domain"})
     )
 
-    tmp = df[df["status_type"] == "Allowed"].copy()
-    tmp["domain"] = tmp["domain"].apply(shorten)
+    tmp_allowed = df[df["status_type"] == "Allowed"].copy()
+    tmp_allowed["domain"] = tmp_allowed["domain"].apply(shorten)
 
     allowed_df = (
-        tmp["domain"]
+        tmp_allowed["domain"]
         .value_counts()
         .nlargest(args.n_domains)
         .reset_index()
         .rename(columns={"index": "Count", "domain": "Domain"})
     )
-
-    del tmp
-    gc.collect()
 
     logging.info("Generated plot data for allowed and blocked domains.")
 
@@ -664,8 +672,64 @@ def generate_plot_data(df):
     )
 
     logging.info("Generated plot data for reply time plot")
-
     client_list = df["client"].unique().tolist()
+
+    # plot data for doman-client scatter. take minimum from n_domains or n_clients
+    top_clients = (
+        df["client"].value_counts().nlargest(min(args.n_domains, args.n_clients)).index
+    )
+    top_domains = (
+        df["domain"].value_counts().nlargest(min(args.n_domains, args.n_clients)).index
+    )
+    df_top = df[df["client"].isin(top_clients) & df["domain"].isin(top_domains)]
+    df_top["domain"] = df_top["domain"].apply(wrap_label)
+    client_domain_scatter_df = (
+        df_top.groupby(["client", "domain", "status_type"])
+        .size()
+        .reset_index(name="count")
+        .sort_values(by="count")
+    )
+
+    # heatmap
+    order = [
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+        "Sunday",
+    ]
+
+    day_hour_heatmap = (
+        df.groupby(["day_name", "hour"])
+        .size()
+        .reset_index(name="count")
+        .pivot(index="day_name", columns="hour", values="count")
+        .fillna(0)
+        .reindex(order)
+    )
+
+    blocked_day_hour_heatmap = (
+        tmp_blocked.groupby(["day_name", "hour"])
+        .size()
+        .reset_index(name="count")
+        .pivot(index="day_name", columns="hour", values="count")
+        .fillna(0)
+        .reindex(order)
+    )
+
+    allowed_day_hour_heatmap = (
+        tmp_allowed.groupby(["day_name", "hour"])
+        .size()
+        .reset_index(name="count")
+        .pivot(index="day_name", columns="hour", values="count")
+        .fillna(0)
+        .reindex(order)
+    )
+
+    del df_top, top_clients, top_domains, tmp_allowed, tmp_blocked
+    gc.collect()
 
     logging.info("Plot data generation complete")
 
@@ -676,6 +740,10 @@ def generate_plot_data(df):
         "reply_time_df": reply_time_df,
         "client_list": client_list,
         "data_span_days": (df["timestamp"].max() - df["timestamp"].min()).days,
+        "client_domain_scatter_df": client_domain_scatter_df,
+        "day_hour_heatmap": day_hour_heatmap,
+        "blocked_day_hour_heatmap": blocked_day_hour_heatmap,
+        "allowed_day_hour_heatmap": allowed_day_hour_heatmap,
     }
 
 
@@ -709,7 +777,7 @@ def serve_layout(
     start_date=None,
     end_date=None,
     timezone="UTC",
-    ignore_domains=""
+    ignore_domains="",
 ):
     """Read pihole ftl db, process data, compute stats"""
 
@@ -718,15 +786,25 @@ def serve_layout(
         logging.info(f"Total number of database files provided : {len(db_paths)}")
     else:
         logging.error(f"db_path parameter must be of type str but got {type(db_path)}")
-        raise ValueError(f"db_path parameter must be of type str but got {type(db_path)}")
-    
+        raise ValueError(
+            f"db_path parameter must be of type str but got {type(db_path)}"
+        )
+
     if ignore_domains != "":
-        if isinstance(ignore_domains,str):
-            regex_pattern_list=[p.strip() for p in ignore_domains.split(",") if p.strip()]
-            logging.info(f"Total number of regex patterns for ignoring domains : {len(regex_pattern_list)}")
+        if isinstance(ignore_domains, str):
+            regex_pattern_list = [
+                p.strip() for p in ignore_domains.split(",") if p.strip()
+            ]
+            logging.info(
+                f"Total number of regex patterns for ignoring domains : {len(regex_pattern_list)}"
+            )
         else:
-            logging.error(f"ignore_domains parameter must be of type str but got {type(ignore_domains)}")
-            raise ValueError(f"ignore_domains parameter must be of type str but got {type(ignore_domains)}")
+            logging.error(
+                f"ignore_domains parameter must be of type str but got {type(ignore_domains)}"
+            )
+            raise ValueError(
+                f"ignore_domains parameter must be of type str but got {type(ignore_domains)}"
+            )
 
     start_memory = psutil.virtual_memory().available
 
@@ -753,8 +831,10 @@ def serve_layout(
         )
     if ignore_domains != "":
         for pattern in regex_pattern_list:
-            df = regex_ignore_domains(df,pattern)
-            logging.info(f"Removed domains matching the regex pattern : {pattern}, number of rows in dataframe : {len(df)}")
+            df = regex_ignore_domains(df, pattern)
+            logging.info(
+                f"Removed domains matching the regex pattern : {pattern}, number of rows in dataframe : {len(df)}"
+            )
 
     # should reduce some memory consumption
     df["id"] = df["id"].astype("int32")
@@ -1390,6 +1470,158 @@ def serve_layout(
             html.Br(),
             html.Div(
                 [
+                    html.H2("Client-Domain Scatter"),
+                    html.H5(
+                        "Top domains (irrespective of blocked or allowed) vs. top clients. Size of points correspond to number of queries."
+                    ),
+                    dcc.Graph(
+                        id="client-domain-scatter",
+                        figure=px.scatter(
+                            plot_data["client_domain_scatter_df"],
+                            x="domain",
+                            y="client",
+                            size="count",
+                            color="status_type",
+                            color_discrete_map={
+                                "Allowed": "#10b981",
+                                "Blocked": "#ef4444",
+                                "Other": "#b99529",
+                            },
+                            template="plotly_white",
+                        ).update_layout(
+                            showlegend=False,
+                            margin=dict(r=0, t=0, l=0, b=0),
+                            xaxis=dict(
+                                title=None,
+                                automargin=True,
+                                tickmode="auto",
+                            ),
+                        ),
+                    ),
+                ],
+                className="cardplot",
+            ),
+            html.Br(),
+            # html.Div(
+            #     [
+            #         html.H2("Day–Hour heatmap"),
+            #         html.H5(
+            #             "Heatmap corresponding to number of queries for day of the week vs. hour of the day."
+            #         ),
+            #         dcc.Graph(
+            #             id="day-hour-heatmap",
+            #             figure=px.imshow(
+            #                 plot_data["day_hour_heatmap"],
+            #                 labels={
+            #                     "x": "Hour",
+            #                     "y": "Day",
+            #                     "color": "Queries",
+            #                 },
+            #                 aspect="auto",
+            #                 text_auto=True,
+            #                 color_continuous_scale="Blues",
+            #             ).update_layout(
+            #                 xaxis=dict(
+            #                     side="top",
+            #                     tickmode="linear",
+            #                 ),
+            #                 margin=dict(l=40, r=40, t=80, b=40),
+            #                 template="plotly_white",
+            #             ),
+            #         ),
+            #     ],
+            #     className="cardplot",
+            # ),
+            html.Div(
+                [
+                    html.H2("Day–Hour-Queries Heatmaps"),
+                    html.H5(
+                        "Heatmap corresponding to number of queries for day of the week vs. hour of the day."
+                    ),
+                    html.Div(
+                        style={
+                            "display": "flex",
+                            "justify-content": "flex-start",
+                            "gap": "5px",
+                        },
+                        children=[
+                            html.Div(
+                                [
+                                    dcc.Graph(
+                                        id="day-hour-heatmap",
+                                        figure=px.imshow(
+                                            plot_data["day_hour_heatmap"],
+                                            labels={
+                                                "x": "Hour",
+                                                "y": "Day",
+                                                "color": "Queries",
+                                            },
+                                            aspect="auto",
+                                            color_continuous_scale="Blues",
+                                        ).update_layout(
+                                            xaxis=dict(side="bottom"),
+                                            margin=dict(l=40, r=40, t=80, b=40),
+                                            template="plotly_white",
+                                            title="Total",
+                                        ),
+                                    ),
+                                ],
+                                style={"width": "33%"},
+                            ),
+                            html.Div(
+                                [
+                                    dcc.Graph(
+                                        id="allowed-day-hour-heatmap",
+                                        figure=px.imshow(
+                                            plot_data["allowed_day_hour_heatmap"],
+                                            labels={
+                                                "x": "Hour",
+                                                "y": "Day",
+                                                "color": "Queries",
+                                            },
+                                            aspect="auto",
+                                            color_continuous_scale="Greens",
+                                        ).update_layout(
+                                            xaxis=dict(side="bottom"),
+                                            margin=dict(l=40, r=40, t=80, b=40),
+                                            template="plotly_white",
+                                            title="Allowed",
+                                        ),
+                                    ),
+                                ],
+                                style={"width": "33%"},
+                            ),
+                            html.Div(
+                                [
+                                    dcc.Graph(
+                                        id="blocked-day-hour-heatmap",
+                                        figure=px.imshow(
+                                            plot_data["blocked_day_hour_heatmap"],
+                                            labels={
+                                                "x": "Hour",
+                                                "y": "Day",
+                                                "color": "Queries",
+                                            },
+                                            aspect="auto",
+                                            color_continuous_scale="Reds",
+                                        ).update_layout(
+                                            xaxis=dict(side="bottom"),
+                                            margin=dict(l=40, r=40, t=80, b=40),
+                                            template="plotly_white",
+                                            title="Blocked",
+                                        ),
+                                    ),
+                                ],
+                                style={"width": "33%"},
+                            ),
+                        ],
+                    ),
+                ],
+                className="cardplot",
+            ),
+            html.Br(),
+            html.Div(
+                [
                     html.Div(
                         [
                             html.H2("Average Reply Time"),
@@ -1415,9 +1647,9 @@ def serve_layout(
             ),
             html.Br(),
             html.Footer(
-            f"PiHoleLongTermStats v.{__version__}",
-            style={"textAlign": "center", "padding": "10px", "color": "#666"},
-        ),
+                f"PiHoleLongTermStats v.{__version__}",
+                style={"textAlign": "center", "padding": "10px", "color": "#666"},
+            ),
         ],
         className="container",
     )
@@ -1429,11 +1661,10 @@ def serve_layout(
 
 ####### Intializing the app #######
 
-logging.info("Initializing PiHoleLongTermStats Dashboard")
-app = Dash(__name__)
-app.title = "PiHoleLongTermStats"
-
 if __name__ == "__main__":
+    logging.info("Initializing PiHoleLongTermStats Dashboard")
+    app = Dash(__name__)
+    app.title = "PiHoleLongTermStats"
 
     if isinstance(args.db_path, str):
         db_paths = args.db_path.split(",")
@@ -1469,7 +1700,7 @@ if __name__ == "__main__":
         start_date=None,
         end_date=None,
         timezone=args.timezone,
-        ignore_domains=args.ignore_domains
+        ignore_domains=args.ignore_domains,
     )
 
     logging.info("Setting initial layout...")
@@ -1537,7 +1768,7 @@ def reload_page(n_clicks, start_date, end_date):
         start_date=start_date,
         end_date=end_date,
         timezone=args.timezone,
-        ignore_domains=args.ignore_domains
+        ignore_domains=args.ignore_domains,
     )
 
     return layout.children
