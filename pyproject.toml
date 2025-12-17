@@ -42,7 +42,7 @@ piholelongtermstats = "piholelongtermstats.app:run"
 
 [tool.setuptools.packages.find]
 include = ["piholelongtermstats*"]
-exclude = ["docs*", "tests*","screenshots*","build*"]
+exclude = ["docs*", "tests*","screenshots*","build*","dist*"]
 
 [tool.setuptools.package-data]
 piholelongtermstats = ["assets/*"]
