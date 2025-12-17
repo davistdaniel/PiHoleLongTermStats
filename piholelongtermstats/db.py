@@ -1,3 +1,7 @@
+## Author :  Davis T. Daniel
+## PiHoleLongTermStats v.0.2.0
+## License :  MIT
+
 import sqlite3
 from datetime import datetime, timedelta
 from pathlib import Path
