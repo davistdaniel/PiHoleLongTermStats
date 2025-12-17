@@ -108,14 +108,30 @@ If you have a copy of your `pihole-FTL.db` file, you can quickly run the dashboa
     ```bash
     python -m pip install piholelongtermstats
     ````
-2. Run the app:
+
+2. Make a directory for PiHoleLongtermStats (optional):
+    ```bash
+    mkdir PiHoleLongTermStats
+    cd PiHoleLongTermStats
+    ```
+
+3. Make a copy/backup of your `pihole-FTL.db` (**Important!**) and place it in the PiHoleLongTermStats directory:
+
+   ```bash
+   # Example: Copy from the default Pi-hole location
+   sudo cp /etc/pihole/pihole-FTL.db . 
+   # Ensure the user running the app has read permissions
+   sudo chown $USER:$USER pihole-FTL.db
+   ```
+4. Run the app:
 
     ```bash
     piholelongtermstats [OPTIONS]
     ```
-3. Open your browser and visit [http://localhost:9292](http://localhost:9292)
+5. Open your browser and visit [http://localhost:9292](http://localhost:9292)
 
-  * Examples for python: 
+  * Examples for python:
+
     To start the dashboard and visualize a single pihole-FTL database file for the last 15 days, with top 20 clients and top 15 domains on port 9292 while ingoring all domains which end with ".local":
 
     ```bash
@@ -164,6 +180,7 @@ If you have a copy of your `pihole-FTL.db` file, you can quickly run the dashboa
 5. Open your browser and visit [http://localhost:9292](http://localhost:9292)
 
   * Examples for python: 
+  
     To start the dashboard and visualize a single pihole-FTL database file for the last 15 days, with top 20 clients and top 15 domains on port 9292 while ingoring all domains which end with ".local":
 
     ```bash
