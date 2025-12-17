@@ -116,7 +116,7 @@ If you have a copy of your `pihole-FTL.db` file, you can quickly run the dashboa
 
 If installing using python, you can install from this git repo or as a package from PyPi.
 
-#### Install from PyPi
+#### Install from PyPi :
 
 <details>
 <summary>Click to expand.</summary>
@@ -172,7 +172,7 @@ If installing using python, you can install from this git repo or as a package f
 
 </details>
 
-#### Install from source
+#### Install from source :
 
 <details>
 <summary>Click to expand.</summary>
