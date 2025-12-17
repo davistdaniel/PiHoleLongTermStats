@@ -9,22 +9,13 @@ import tempfile
 import shutil
 import pandas.testing as pdt
 
-from app import (
-    connect_to_sql,
-    probe_sample_df,
-    get_timestamp_range,
-    read_pihole_ftl_db,
-    _is_valid_regex,
-    regex_ignore_domains,
-)
-
+import piholelongtermstats
+print("piholelongtermstats dir : ",piholelongtermstats.__file__)
+from piholelongtermstats.db import connect_to_sql,read_pihole_ftl_db,probe_sample_df,get_timestamp_range
+from piholelongtermstats.process import _is_valid_regex,regex_ignore_domains
 
 @pytest.fixture(scope="session")
 def dummy_df():
-    # Define columns
-    # cols = ['id', 'timestamp', 'type', 'status', 'domain', 'client', 'forward',
-    #     'additional_info', 'reply_type', 'reply_time', 'dnssec', 'list_id',
-    #     'ede']
 
     def make_dummy_df(seed):
         rng = np.random.default_rng(seed)
