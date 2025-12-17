@@ -1,24 +1,24 @@
 # Pi Hole Long Term Statistics v.0.2.0
 
-A dashboard built with **Dash** and **Plotly** to explore long-term DNS query data from **Pi-hole v.6** FTL database files. Visualize allowed vs blocked domains, top clients, and query trends over time. If you find this project helpful, please consider giving it a ⭐ to show your support.
+A dashboard built with **Dash** and **Plotly** to explore long-term DNS query data from **Pi-hole v.6** FTL database files. Visualize allowed vs blocked domains, top clients, and query trends over time. I originally made this for my own use, but if you find it useful, a ⭐ would be awesome!
 
 
-**Disclaimer : This is an unofficial, third-party project. The Pi Hole team and the development of Pi Hole software is not related to this project.**
+**Disclaimer : This is an unofficial, third-party project. The Pi Hole team and the development of [PiHole](https://pi-hole.net/) software is not related to this project.**
 
 
 <div align="center">
-  <img src="screenshots/screenshot1.png" alt="Demo Gif" width="600">
+  <img src="https://raw.githubusercontent.com/davistdaniel/PiHoleLongTermStats/feature/new-visualizations/screenshots/screenshot1.png" alt="Demo Gif" width="600">
 </div>
 
 <div align="center">
-  <img src="screenshots/demo.gif" alt="Demo Gif" width="600">
+  <img src="https://raw.githubusercontent.com/davistdaniel/PiHoleLongTermStats/feature/new-visualizations/screenshots/demo.gif" alt="Demo Gif" width="600">
 </div>
 
-See more [screenshots](screenshots/screenshots.md). (The screenshots visualize a dummy database.)
+See more [screenshots](https://github.com/davistdaniel/PiHoleLongTermStats/blob/feature/new-visualizations/screenshots/screenshots.md). (The screenshots use a mock database.)
 
 ## 🧰 Features
 - ➕ Combine multiple databases and visualize consolidated stats.
-- 🗂️ Info cards : Query stats, Activity stats, Day and Night stats. See [all supported metrics](#supported-metrics).
+- 🗂️ Info cards : Query stats, Activity stats, Day and Night stats. See [all supported metrics](https://github.com/davistdaniel/PiHoleLongTermStats/tree/feature/new-visualizations?tab=readme-ov-file#supported-metrics).
 - 📈 Interactive charts for query trends and client behavior, heatmaps showing day-hour stats, reply-times visualisation and more.
 - 🔍 Filter queries by client.
 - 🌐 View any number of top blocked/allowed domains, top clients.
@@ -45,7 +45,8 @@ See more [screenshots](screenshots/screenshots.md). (The screenshots visualize a
 > * Large date ranges may lead to increased memory usage.
 > * When multiple database files are provided, PiHoleLongTermStats concatenates them into a single dataframe and sorts the combined data by timestamp. Duplicate entries are **not** removed for calculating stats. Consolidating multiple databases can lead to increased memory usage.
 
-There are multiple ways to run the dashboard: using Python or Docker.
+> [!TIP]
+> There are multiple ways to run the dashboard: using Python or Docker.
 
 ### 🐳 Using Docker
 
@@ -66,7 +67,7 @@ If you have a copy of your `pihole-FTL.db` file, you can quickly run the dashboa
    sudo chown $USER:$USER pihole-FTL.db
    ```
 3. Make a docker-compose.yml file in the same directory:
-
+    
     ```docker
     services:
       pihole-long-term-stats:
@@ -107,6 +108,9 @@ If you have a copy of your `pihole-FTL.db` file, you can quickly run the dashboa
 4. Open your browser and visit [http://localhost:9292](http://localhost:9292)
 
 ### 🐍 Using Python
+
+If installing using python, you can install from this git repo or as a package from Pypi.
+
 #### Install from PyPi
 1. Install PiHoleLongTermStats from PyPi
 
@@ -115,6 +119,7 @@ If you have a copy of your `pihole-FTL.db` file, you can quickly run the dashboa
     ````
 
 2. Make a directory for PiHoleLongtermStats (optional):
+
     ```bash
     mkdir PiHoleLongTermStats
     cd PiHoleLongTermStats
@@ -135,7 +140,9 @@ If you have a copy of your `pihole-FTL.db` file, you can quickly run the dashboa
     ```
 5. Open your browser and visit [http://localhost:9292](http://localhost:9292)
 
-  * Examples for python:
+
+    <details>
+    <summary><b>Examples for python (Click to expand.)</b></summary>
 
     To start the dashboard and visualize a single pihole-FTL database file for the last 15 days, with top 20 clients and top 15 domains on port 9292 while ingoring all domains which end with ".local":
 
@@ -143,7 +150,7 @@ If you have a copy of your `pihole-FTL.db` file, you can quickly run the dashboa
     piholelongtermstats --db_path pihole-FTL.db --days 15 --n_clients 20 --n_domains 15 --port 9292 --ignore-domains ".*\.local"
     ```
     To combine two databases, provide paths as comma-separated strings:
-    
+
     ```bash
     piholelongtermstats --db_path pihole-FTL.db,pihole-FTL-2.db
     ```
@@ -152,6 +159,9 @@ If you have a copy of your `pihole-FTL.db` file, you can quickly run the dashboa
     ```bash
     piholelongtermstats --ignore-domains ".*\.local,.*\.apple.com"
     ```
+    </details>
+
+
 #### Install from source
 1. Clone this repository and move into the project folder:
 
@@ -184,7 +194,9 @@ If you have a copy of your `pihole-FTL.db` file, you can quickly run the dashboa
 
 5. Open your browser and visit [http://localhost:9292](http://localhost:9292)
 
-  * Examples for python: 
+
+    <details>
+    <summary><b>Examples for python (Click to expand.)</b></summary>
 
     To start the dashboard and visualize a single pihole-FTL database file for the last 15 days, with top 20 clients and top 15 domains on port 9292 while ingoring all domains which end with ".local":
 
@@ -192,7 +204,7 @@ If you have a copy of your `pihole-FTL.db` file, you can quickly run the dashboa
     python piholelongtermstats/app.py --db_path pihole-FTL.db --days 15 --n_clients 20 --n_domains 15 --port 9292 --ignore-domains ".*\.local"
     ```
     To combine two databases, provide paths as comma-separated strings:
-    
+
     ```bash
     python piholelongtermstats/app.py --db_path pihole-FTL.db,pihole-FTL-2.db
     ```
@@ -201,6 +213,7 @@ If you have a copy of your `pihole-FTL.db` file, you can quickly run the dashboa
     ```bash
     python piholelongtermstats/app.py --ignore-domains ".*\.local,.*\.apple.com"
     ```
+    </details>
 
 
 ## ⚙️ Configuration
