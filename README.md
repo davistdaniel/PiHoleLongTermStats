@@ -53,6 +53,7 @@ See more [screenshots](https://github.com/davistdaniel/PiHoleLongTermStats/blob/
 <details>
 <summary>Click to expand.</summary>
 
+
 If you have a copy of your `pihole-FTL.db` file, you can quickly run the dashboard using Docker Compose.
 
 1. Make a directory for PiHoleLongtermStats:
