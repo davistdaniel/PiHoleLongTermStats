@@ -5,11 +5,16 @@ A dashboard built with **Dash** and **Plotly** to explore long-term DNS query da
 
 **Disclaimer : This is an unofficial, third-party project. The Pi Hole team and the development of Pi Hole software is not related to this project.**
 
-<center>
-<img src="screenshots/demo.gif" alt="Demo Gif" width="600">
-</center>
 
-See more [screenshots](screenshots/screenshots.md).
+<div align="center">
+  <img src="screenshots/screenshot1.png" alt="Demo Gif" width="600">
+</div>
+
+<div align="center">
+  <img src="screenshots/demo.gif" alt="Demo Gif" width="600">
+</div>
+
+See more [screenshots](screenshots/screenshots.md). (The screenshots visualize a dummy database.)
 
 ## 🧰 Features
 - ➕ Combine multiple databases and visualize consolidated stats.
@@ -180,7 +185,7 @@ If you have a copy of your `pihole-FTL.db` file, you can quickly run the dashboa
 5. Open your browser and visit [http://localhost:9292](http://localhost:9292)
 
   * Examples for python: 
-  
+
     To start the dashboard and visualize a single pihole-FTL database file for the last 15 days, with top 20 clients and top 15 domains on port 9292 while ingoring all domains which end with ".local":
 
     ```bash
