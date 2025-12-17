@@ -50,6 +50,9 @@ See more [screenshots](https://github.com/davistdaniel/PiHoleLongTermStats/blob/
 
 ### 🐳 Using Docker
 
+<details>
+<summary><b>Click to expand</b></summary>
+
 If you have a copy of your `pihole-FTL.db` file, you can quickly run the dashboard using Docker Compose.
 
 1. Make a directory for PiHoleLongtermStats:
@@ -104,14 +107,19 @@ If you have a copy of your `pihole-FTL.db` file, you can quickly run the dashboa
     ```bash
     sudo docker compose up -d
     ```
-
 4. Open your browser and visit [http://localhost:9292](http://localhost:9292)
+</details>
+
 
 ### 🐍 Using Python
 
 If installing using python, you can install from this git repo or as a package from Pypi.
 
 #### Install from PyPi
+
+<details>
+<summary><b>Click to expand</b></summary>
+
 1. Install PiHoleLongTermStats from PyPi
 
     ```bash
@@ -161,8 +169,13 @@ If installing using python, you can install from this git repo or as a package f
     ```
     </details>
 
+</details>
 
 #### Install from source
+
+<details>
+<summary><b>Click to expand</b></summary>
+
 1. Clone this repository and move into the project folder:
 
     ```bash
@@ -214,7 +227,7 @@ If installing using python, you can install from this git repo or as a package f
     python piholelongtermstats/app.py --ignore-domains ".*\.local,.*\.apple.com"
     ```
     </details>
-
+</details>
 
 ## ⚙️ Configuration
 
