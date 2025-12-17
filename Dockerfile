@@ -3,18 +3,13 @@ FROM python:3.12-slim-bookworm
 # Change the working directory to the `app` directory
 WORKDIR /app
 
-# Copy only the files needed for dependency installation
-COPY requirements.txt ./
-
-# Install dependencies
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Copy the rest of the application code
-COPY app.py .
-COPY assets/style.css ./assets/
-COPY assets/favicon.ico ./assets/
-COPY assets/logo_phlts.png ./assets/
+# copy required files
+COPY pyproject.toml .
 COPY LICENSE .
+COPY piholelongtermstats ./piholelongtermstats
+
+# install using pip
+RUN pip install --no-cache-dir .
 
 # Run the app
-CMD ["python", "app.py"]
+CMD ["piholelongtermstats"]
