@@ -51,7 +51,7 @@ See more [screenshots](https://github.com/davistdaniel/PiHoleLongTermStats/blob/
 ### 🐳 Using Docker
 
 <details>
-<summary><b>Click to expand</b></summary>
+<summary>Click to expand.</summary>
 
 If you have a copy of your `pihole-FTL.db` file, you can quickly run the dashboard using Docker Compose.
 
@@ -113,12 +113,12 @@ If you have a copy of your `pihole-FTL.db` file, you can quickly run the dashboa
 
 ### 🐍 Using Python
 
-If installing using python, you can install from this git repo or as a package from Pypi.
+If installing using python, you can install from this git repo or as a package from PyPi.
 
 #### Install from PyPi
 
 <details>
-<summary><b>Click to expand</b></summary>
+<summary>Click to expand.</summary>
 
 1. Install PiHoleLongTermStats from PyPi
 
@@ -174,7 +174,7 @@ If installing using python, you can install from this git repo or as a package f
 #### Install from source
 
 <details>
-<summary><b>Click to expand</b></summary>
+<summary>Click to expand.</summary>
 
 1. Clone this repository and move into the project folder:
 
