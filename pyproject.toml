@@ -1,0 +1,49 @@
+[project]
+name = "piholelongtermstats"
+version = "0.2.0"
+dependencies = [
+    "dash==3.0.4",
+    "pandas==2.2.3",
+    "plotly==6.0.1",
+    "psutil==7.1.2"
+]
+requires-python = ">=3.11"
+authors = [
+  {name = "Davis Thomas Daniel", email = "davisthomasdaniel@gmail.com"},
+]
+maintainers = [
+  {name = "Davis Thomas Daniel", email = "davisthomasdaniel@gmail.com"},
+]
+description = "A dashboard to explore long-term DNS query data from Pi-hole FTL database files."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+keywords = ["dashboard", "pihole", "visualization", "plotly", "dash"]
+classifiers = [
+  "Programming Language :: Python"
+]
+
+[project.optional-dependencies]
+develop = [
+  "pytest==9.0.1",
+  "ruff",
+  "build==1.3.0",
+  "twine==6.2.0",
+  "pytest-cov==7.0.0"
+]
+
+[project.urls]
+Homepage = "https://github.com/davistdaniel/PiHoleLongTermStats"
+Documentation = "https://readthedocs.org"
+Repository = "https://github.com/davistdaniel/PiHoleLongTermStats.git"
+"Bug Tracker" = "https://github.com/davistdaniel/PiHoleLongTermStats/issues"
+
+[project.scripts]
+piholelongtermstats = "piholelongtermstats.app:run"
+
+[tool.setuptools.packages.find]
+include = ["piholelongtermstats*"]
+exclude = ["docs*", "tests*","screenshots*","build*","dist*"]
+
+[tool.setuptools.package-data]
+piholelongtermstats = ["assets/*"]

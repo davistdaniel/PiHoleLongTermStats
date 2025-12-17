@@ -1,0 +1,341 @@
+body {
+    font-family: 'Segoe UI', sans-serif;
+    background-color: #f7f9fb;
+    margin: 0;
+    padding: 0;
+    color: #333;
+}
+
+h1,
+h2,
+h3 {
+    color: #2c3e50;
+}
+
+
+.heading-card {
+    background-color: #24292e;
+    border-radius: 30px;
+    padding: 4px 5px;
+    margin: 2px auto;
+    max-width: 400px;
+    text-align: center;
+    border-left: 5px solid #bd3838;
+    border-right: 5px solid #42ad62;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08);
+    transition: background 0.5s ease, transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.heading-card img {
+    display: block;
+    margin: 0 auto;
+    width: 100px;
+}
+
+.heading-card:hover {
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15);
+}
+
+.heading-card h1 {
+    color: #e5e5e6;
+}
+
+.sub-heading-card {
+    background-color: #ffffff;
+    border-radius: 30px;
+    padding: 15px 20px;
+    margin: 15px auto;
+    max-width: 650px;
+    text-align: center;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08);
+    border-left: 5px solid #34495e;
+}
+
+.sub-heading-card h5 {
+    margin: 0;
+    font-size: 15px;
+    color: #2c3e50;
+    font-weight: bold;
+    text-align: justify;
+}
+
+.sub-heading-card h6 {
+    margin: 0;
+    font-size: 15px;
+    color: #747474;
+    font-weight: 100;
+    text-align: center;
+}
+
+
+.container {
+    padding: 20px;
+    max-width: 1400px;
+    margin: auto;
+}
+
+.kpi-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+}
+
+.card {
+    background: linear-gradient(135deg, #ffffff, #f0f0f5);
+    border-radius: 15px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.06);
+    padding: 20px;
+    transition: transform 0.2s ease-in-out;
+    border-left: 5px solid #06816b;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+}
+
+.card:nth-child(1),
+.card:nth-child(3) {
+    background: #f5fff7;
+    border-left-color: #27ae60;
+}
+
+.card:nth-child(2),
+.card:nth-child(4) {
+    background: #ffe8e8;
+    border-left-color: #e74c3c;
+}
+
+.card h3 {
+    margin-top: 0;
+    font-size: 18px;
+    color: #555555;
+}
+
+.card p {
+    font-size: 24px;
+    font-weight: bold;
+    margin: 10px 0 0;
+}
+
+.card p:nth-of-type(2),
+.card p:last-of-type {
+    font-size: 14px;
+    font-weight: normal;
+    color: #777777;
+    margin-top: 5px;
+}
+
+.row {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 20px;
+}
+
+.half {
+    flex: 1 1 48%;
+}
+
+.cardplot {
+    flex: 1 1 50%;
+    background: #ffffff;
+    border-left: 5px solid #34495e;
+    border-radius: 15px;
+    padding: 20px;
+    transition: transform 0.2s ease-in-out;
+}
+
+
+
+.cardactivity {
+    background: linear-gradient(135deg, #ffffff, #f5f5f0);
+    border-radius: 15px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.06);
+    padding: 20px;
+    transition: transform 0.2s ease-in-out;
+    border-left: 5px solid #e7f122;
+}
+
+.cardactivity h3 {
+    margin-top: 0;
+    font-size: 18px;
+    color: #555555;
+}
+
+.cardactivity p {
+    font-size: 24px;
+    font-weight: bold;
+    margin: 10px 0 0;
+}
+
+.cardactivity p:last-of-type {
+    font-size: 14px;
+    font-weight: normal;
+    color: #777777;
+    margin-top: 5px;
+}
+
+.cardactivity:hover {
+    transform: translateY(-5px);
+}
+
+.cardquery {
+    background: linear-gradient(135deg, #ffffff, #f4f0f5);
+    border-radius: 15px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.06);
+    padding: 20px;
+    transition: transform 0.2s ease-in-out;
+    border-left: 5px solid #7c22f1;
+}
+
+.cardquery h3 {
+    margin-top: 0;
+    font-size: 18px;
+    color: #555555;
+}
+
+.cardquery p {
+    font-size: 24px;
+    font-weight: bold;
+    margin: 10px 0 0;
+}
+
+.cardquery p:last-of-type {
+    font-size: 14px;
+    font-weight: normal;
+    color: #777777;
+    margin-top: 5px;
+}
+
+.cardquery:hover {
+    transform: translateY(-5px);
+}
+
+.carddaynight {
+    background: linear-gradient(135deg, #ffffff, #f5f0f5);
+    border-radius: 15px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.06);
+    padding: 20px;
+    transition: transform 0.2s ease-in-out;
+    border-left: 5px solid #f122e3;
+}
+
+.carddaynight h3 {
+    margin-top: 0;
+    font-size: 18px;
+    color: #555555;
+}
+
+.carddaynight p {
+    font-size: 24px;
+    font-weight: bold;
+    margin: 10px 0 0;
+}
+
+.carddaynight p:last-of-type {
+    font-size: 14px;
+    font-weight: normal;
+    color: #777777;
+    margin-top: 5px;
+}
+
+.carddaynight:hover {
+    transform: translateY(-5px);
+}
+
+.cardother {
+    background: linear-gradient(135deg, #ffffff, #f7f1ec);
+    border-radius: 15px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.06);
+    padding: 20px;
+    transition: transform 0.2s ease-in-out;
+    border-left: 5px solid #f16722;
+}
+
+.cardother h3 {
+    margin-top: 0;
+    font-size: 18px;
+    color: #555555;
+}
+
+.cardother p {
+    font-size: 24px;
+    font-weight: bold;
+    margin: 10px 0 0;
+}
+
+.cardother p:last-of-type {
+    font-size: 14px;
+    font-weight: normal;
+    color: #777777;
+    margin-top: 5px;
+}
+
+.cardother:hover {
+    transform: translateY(-5px);
+}
+
+.reload-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    margin: 15px;
+}
+
+.reload-btn {
+    background-color: #24292e;
+    color: white;
+    border: none;
+    padding: 8px 20px;
+    border-radius: 50px;
+    font-size: 24px;
+    font-weight: 200;
+    cursor: pointer;
+    text-decoration: none;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    transition: all 0.2s ease-in-out;
+}
+
+.reload-btn:hover {
+    background-color: #cc1e2f;
+    transform: scale(1.03);
+}
+
+.date-picker-btn .DateRangePickerInput {
+    background-color: transparent;
+    border: none;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 36px;
+}
+
+.date-picker-btn .DateInput_input {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #24292e;
+    color: #f7f9fb;
+    border: none;
+    border-radius: 50px;
+    padding: 0 20px;
+    height: 46px;
+    font-size: 16px;
+    font-weight: 200;
+    text-align: center;
+    cursor: pointer;
+    line-height: normal;
+}
+
+.date-picker-btn .DateRangePickerArrow {
+    color: #f7f9fb;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+}

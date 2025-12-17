@@ -23,9 +23,9 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install .
           pip install pytest pytest-cov
 
       - name: Run tests with coverage
         run: |
-          python -m pytest tests/phlts_tests.py --cov=app --cov-report term-missing
+          python -m pytest tests/phlts_tests.py -v -s --cov=piholelongtermstats --cov-report term-missing
