@@ -1,4 +1,4 @@
-# Pi Hole Long Term Statistics v.0.1.5
+# Pi Hole Long Term Statistics v.0.2.0
 
 A dashboard built with **Dash** and **Plotly** to explore long-term DNS query data from **Pi-hole v.6** FTL database files. Visualize allowed vs blocked domains, top clients, and query trends over time. I originally made this for my own use, but if you find it useful, a ⭐ would be awesome!
 
@@ -7,18 +7,18 @@ A dashboard built with **Dash** and **Plotly** to explore long-term DNS query da
 
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/davistdaniel/PiHoleLongTermStats/feature/new-visualizations/screenshots/screenshot1.png" alt="Demo Gif" width="600">
+  <img src="https://raw.githubusercontent.com/davistdaniel/PiHoleLongTermStats/main/screenshots/screenshot1.png" alt="Demo Gif" width="600">
 </div>
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/davistdaniel/PiHoleLongTermStats/feature/new-visualizations/screenshots/demo.gif" alt="Demo Gif" width="600">
+  <img src="https://raw.githubusercontent.com/davistdaniel/PiHoleLongTermStats/main/screenshots/demo.gif" alt="Demo Gif" width="600">
 </div>
 
-See more [screenshots](https://github.com/davistdaniel/PiHoleLongTermStats/blob/feature/new-visualizations/screenshots/screenshots.md). (The screenshots use a mock database.)
+See more [screenshots](https://github.com/davistdaniel/PiHoleLongTermStats/blob/main/screenshots/screenshots.md). (The screenshots use a mock database.)
 
 ## 🧰 Features
 - ➕ Combine multiple databases and visualize consolidated stats.
-- 🗂️ Info cards : Query stats, Activity stats, Day and Night stats. See [all supported metrics](https://github.com/davistdaniel/PiHoleLongTermStats/tree/feature/new-visualizations?tab=readme-ov-file#supported-metrics).
+- 🗂️ Info cards : Query stats, Activity stats, Day and Night stats. See [all supported metrics](https://github.com/davistdaniel/PiHoleLongTermStats?tab=readme-ov-file#supported-metrics).
 - 📈 Interactive charts for query trends and client behavior, heatmaps showing day-hour stats, reply-times visualisation and more.
 - 🔍 Filter queries by client.
 - 🌐 View any number of top blocked/allowed domains, top clients.
