@@ -34,7 +34,7 @@ develop = [
 
 [project.urls]
 Homepage = "https://github.com/davistdaniel/PiHoleLongTermStats"
-Documentation = "https://readthedocs.org"
+Documentation = "https://github.com/davistdaniel/PiHoleLongTermStats"
 Repository = "https://github.com/davistdaniel/PiHoleLongTermStats.git"
 "Bug Tracker" = "https://github.com/davistdaniel/PiHoleLongTermStats/issues"
 
