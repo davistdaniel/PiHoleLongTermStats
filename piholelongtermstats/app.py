@@ -688,7 +688,7 @@ def serve_layout(
             html.Div(
                 [
                     html.H2("Queries over time"),
-                    html.H5("Aggregated hourly"),
+                    html.H5("Queries from all clients. The data is aggregated hourly."),
                     dcc.Dropdown(
                         options=[
                             {"label": c, "value": c} for c in plot_data["client_list"]
@@ -698,7 +698,7 @@ def serve_layout(
                     ),
                     dcc.Graph(id="filtered-view"),
                     html.H2("Client Activity Over Time"),
-                    html.H5("Aggregated hourly"),
+                    html.H5("Client acitivity for all clients. The data is aggregated hourly."),
                     dcc.Graph(id="client-activity-view"),
                 ],
                 className="cardplot",
@@ -707,6 +707,7 @@ def serve_layout(
             html.Div(
                 [
                     html.H2("Top Blocked Domains"),
+                    html.H5(f"Top {args.n_domains} blocked domains."),
                     dcc.Graph(
                         id="top-blocked-domains",
                         figure=px.bar(
@@ -735,6 +736,7 @@ def serve_layout(
             html.Div(
                 [
                     html.H2("Top Allowed Domains"),
+                    html.H5(f"Top {args.n_domains} allowed domains."),
                     dcc.Graph(
                         id="top-allowed-domains",
                         figure=px.bar(
@@ -764,6 +766,7 @@ def serve_layout(
             html.Div(
                 [
                     html.H2("Top Client Activity"),
+                    html.H5(f"Top {args.n_clients} clients based on total queries."),
                     dcc.Graph(
                         id="top-clients",
                         figure=px.bar(
@@ -777,7 +780,6 @@ def serve_layout(
                             },
                             color="status_type",
                             barmode="stack",
-                            title="Top Clients by Query Type",
                             color_discrete_map={
                                 "Allowed": "#10b981",
                                 "Blocked": "#ef4444",
@@ -926,6 +928,7 @@ def serve_layout(
                     html.Div(
                         [
                             html.H2("Average Reply Time"),
+                            html.H5("Daily average reply time in ms."),
                             dcc.Graph(
                                 id="avg-reply-time",
                                 figure=px.line(
@@ -1025,6 +1028,7 @@ app.layout = html.Div(
 del initial_layout
 gc.collect()
 
+
 @app.callback(
     Output("page-container", "children"),
     Input("reload-button", "n_clicks"),
@@ -1035,9 +1039,7 @@ gc.collect()
 def reload_page(n_clicks, start_date, end_date):
     global PHLTS_CALLBACK_DATA
 
-    logging.info(
-        f"Reload button clicked. Selected date range: {start_date, end_date}"
-    )
+    logging.info(f"Reload button clicked. Selected date range: {start_date, end_date}")
 
     chunksize_list, latest_ts_list, oldest_ts_list = (
         [],
@@ -1074,6 +1076,7 @@ def reload_page(n_clicks, start_date, end_date):
     )
 
     return layout.children
+
 
 @app.callback(
     Output("filtered-view", "figure"),
@@ -1152,6 +1155,7 @@ def update_filtered_view(client, n_clicks):
 
     return fig
 
+
 @app.callback(
     Output("client-activity-view", "figure"),
     Input("client-filter", "value"),
@@ -1168,18 +1172,14 @@ def update_client_activity(client, n_clicks):
         logging.info(f"Selected client : {client}")
         dff_grouped = dff_grouped[dff_grouped["client"] == client]
         dff_grouped = (
-            dff_grouped.groupby(["timestamp", "client"])["count"]
-            .sum()
-            .reset_index()
+            dff_grouped.groupby(["timestamp", "client"])["count"].sum().reset_index()
         )
         title_text = f"Activity for {client}"
         clients_to_show = [client]
     else:
         dff_grouped = dff_grouped[dff_grouped["client"].isin(top_clients)]
         dff_grouped = (
-            dff_grouped.groupby(["timestamp", "client"])["count"]
-            .sum()
-            .reset_index()
+            dff_grouped.groupby(["timestamp", "client"])["count"].sum().reset_index()
         )
         title_text = f"Activity for top {args.n_clients} clients"
         clients_to_show = top_clients
@@ -1229,9 +1229,10 @@ def update_client_activity(client, n_clicks):
     return fig
 
 
-
 def run():
     app.run(host="0.0.0.0", port=args.port, debug=False)
+
+
 # serve
 if __name__ == "__main__":
     run()
