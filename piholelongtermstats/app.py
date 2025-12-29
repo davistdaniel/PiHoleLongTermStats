@@ -22,7 +22,7 @@ from piholelongtermstats.process import (
 from piholelongtermstats.stats import compute_stats
 from piholelongtermstats.plot import generate_plot_data
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 
 # logging setup
 logging.basicConfig(
@@ -698,7 +698,9 @@ def serve_layout(
                     ),
                     dcc.Graph(id="filtered-view"),
                     html.H2("Client Activity Over Time"),
-                    html.H5("Client acitivity for all clients. The data is aggregated hourly."),
+                    html.H5(
+                        "Client acitivity for all clients. The data is aggregated hourly."
+                    ),
                     dcc.Graph(id="client-activity-view"),
                 ],
                 className="cardplot",
