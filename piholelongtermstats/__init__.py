@@ -1,3 +1,3 @@
 ## Author :  Davis T. Daniel
-## PiHoleLongTermStats v.0.2.0
+## PiHoleLongTermStats v.0.2.1
 ## License :  MIT
