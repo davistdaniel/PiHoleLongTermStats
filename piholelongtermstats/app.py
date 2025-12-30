@@ -5,7 +5,6 @@
 import os
 import gc
 import argparse
-import itertools
 import logging
 import psutil
 import plotly.express as px
@@ -20,7 +19,7 @@ from piholelongtermstats.process import (
     prepare_hourly_aggregated_data,
 )
 from piholelongtermstats.stats import compute_stats
-from piholelongtermstats.plot import generate_plot_data
+from piholelongtermstats.plot import generate_plot_data, generate_client_activity_over_time, generate_queries_over_time
 
 __version__ = "0.2.1"
 
@@ -95,7 +94,6 @@ logging.info(f"PIHOLE_LT_STATS_NDOMAINS : {args.n_domains}")
 logging.info(f"PIHOLE_LT_STATS_TIMEZONE : {args.timezone}")
 logging.info(f"PIHOLE_LT_STATS_IGNORE_DOMAINS : {args.ignore_domains}")
 logging.info("Initializing PiHoleLongTermStats Dashboard")
-
 
 def serve_layout(
     db_path,
@@ -192,6 +190,11 @@ def serve_layout(
     # release some memory
     del df, hourly_data
     gc.collect()
+
+    # generate initial plots
+
+    initial_filtered_fig = generate_queries_over_time(callback_data=callback_data,client=None)
+    initial_activity_fig = generate_client_activity_over_time(callback_data=callback_data,n_clients=args.n_clients,client=None)
 
     layout = html.Div(
         [
@@ -696,12 +699,12 @@ def serve_layout(
                         id="client-filter",
                         placeholder="Select a Client",
                     ),
-                    dcc.Graph(id="filtered-view"),
+                    dcc.Graph(id="filtered-view",figure=initial_filtered_fig),
                     html.H2("Client Activity Over Time"),
                     html.H5(
                         "Client acitivity for all clients. The data is aggregated hourly."
                     ),
-                    dcc.Graph(id="client-activity-view"),
+                    dcc.Graph(id="client-activity-view",figure=initial_activity_fig),
                 ],
                 className="cardplot",
             ),
@@ -1030,13 +1033,12 @@ app.layout = html.Div(
 del initial_layout
 gc.collect()
 
-
 @app.callback(
     Output("page-container", "children"),
     Input("reload-button", "n_clicks"),
     State("date-picker-range", "start_date"),
     State("date-picker-range", "end_date"),
-    prevent_initial_call=False,
+    prevent_initial_call=True,
 )
 def reload_page(n_clicks, start_date, end_date):
     global PHLTS_CALLBACK_DATA
@@ -1084,76 +1086,13 @@ def reload_page(n_clicks, start_date, end_date):
     Output("filtered-view", "figure"),
     Input("client-filter", "value"),
     Input("reload-button", "n_clicks"),
+    prevent_initial_call=True,
 )
 def update_filtered_view(client, n_clicks):
     logging.info("Updating Queries over time plot...")
     global PHLTS_CALLBACK_DATA
 
-    dff_grouped = PHLTS_CALLBACK_DATA["hourly_agg"]
-
-    if client:
-        logging.info(f"Selected client : {client}")
-        dff_grouped = dff_grouped[dff_grouped["client"] == client]
-        title_text = f"DNS Queries Over Time for {client}"
-    else:
-        dff_grouped = (
-            dff_grouped.groupby(["timestamp", "status_type"])["count"]
-            .sum()
-            .reset_index()
-        )
-        title_text = "DNS Queries Over Time for All Clients"
-
-    # Fill missing data with 0
-    all_times = pd.date_range(
-        dff_grouped["timestamp"].min(), dff_grouped["timestamp"].max(), freq="h"
-    )
-    status_types = ["Other", "Allowed", "Blocked"]
-    full_index = pd.MultiIndex.from_product(
-        [all_times, status_types], names=["timestamp", "status_type"]
-    )
-    dff_grouped = (
-        dff_grouped.set_index(["timestamp", "status_type"])
-        .reindex(full_index, fill_value=0)
-        .reset_index()
-    )
-    dff_grouped["status_type"] = pd.Categorical(
-        dff_grouped["status_type"], categories=status_types, ordered=True
-    )
-    dff_grouped = dff_grouped.sort_values("status_type")
-
-    fig = px.area(
-        dff_grouped,
-        x="timestamp",
-        y="count",
-        color="status_type",
-        line_group="status_type",
-        title=title_text,
-        color_discrete_map={
-            "Allowed": "#10b981",
-            "Blocked": "#ef4444",
-            "Other": "#b99529",
-        },
-        template="plotly_white",
-        labels={
-            "timestamp": "Date",
-            "count": "Count",
-            "status_type": "Query Status",
-        },
-    )
-
-    fig.update_traces(
-        mode="lines",
-        line_shape="spline",
-        line=dict(width=0.5),
-        stackgroup="one",
-    )
-
-    fig.update_layout(
-        legend=dict(orientation="h", yanchor="top", y=-0.4, xanchor="center", x=0.5)
-    )
-
-    del dff_grouped
-    gc.collect()
+    fig = generate_queries_over_time(callback_data=PHLTS_CALLBACK_DATA,client=client)
 
     return fig
 
@@ -1162,71 +1101,13 @@ def update_filtered_view(client, n_clicks):
     Output("client-activity-view", "figure"),
     Input("client-filter", "value"),
     Input("reload-button", "n_clicks"),
+    prevent_initial_call=True,
 )
 def update_client_activity(client, n_clicks):
     logging.info("Updating Client activity over time plot...")
     global PHLTS_CALLBACK_DATA
 
-    dff_grouped = PHLTS_CALLBACK_DATA["hourly_agg"]
-    top_clients = PHLTS_CALLBACK_DATA["top_clients"]
-
-    if client:
-        logging.info(f"Selected client : {client}")
-        dff_grouped = dff_grouped[dff_grouped["client"] == client]
-        dff_grouped = (
-            dff_grouped.groupby(["timestamp", "client"])["count"].sum().reset_index()
-        )
-        title_text = f"Activity for {client}"
-        clients_to_show = [client]
-    else:
-        dff_grouped = dff_grouped[dff_grouped["client"].isin(top_clients)]
-        dff_grouped = (
-            dff_grouped.groupby(["timestamp", "client"])["count"].sum().reset_index()
-        )
-        title_text = f"Activity for top {args.n_clients} clients"
-        clients_to_show = top_clients
-
-    all_times = pd.date_range(
-        dff_grouped["timestamp"].min(), dff_grouped["timestamp"].max(), freq="h"
-    )
-    full_index = pd.MultiIndex.from_product(
-        [all_times, clients_to_show], names=["timestamp", "client"]
-    )
-    pivot_df = (
-        dff_grouped.set_index(["timestamp", "client"])
-        .reindex(full_index, fill_value=0)
-        .reset_index()
-    )
-
-    default_colors = px.colors.qualitative.Plotly
-    client_color_map = dict(zip(top_clients, itertools.cycle(default_colors)))
-
-    fig = px.area(
-        pivot_df,
-        x="timestamp",
-        y="count",
-        color="client",
-        line_group="client",
-        title=title_text,
-        color_discrete_map=client_color_map,
-        template="plotly_white",
-        labels={"timestamp": "Date", "count": "Count", "client": "Client IP"},
-    )
-
-    fig.update_traces(
-        mode="lines",
-        line_shape="spline",
-        line=dict(width=0.2),
-        stackgroup="one",
-        connectgaps=False,
-    )
-
-    fig.update_layout(
-        legend=dict(orientation="h", yanchor="top", y=-0.4, xanchor="center", x=0.5)
-    )
-
-    del dff_grouped, pivot_df
-    gc.collect()
+    fig = generate_client_activity_over_time(callback_data=PHLTS_CALLBACK_DATA,n_clients=args.n_clients,client=client)
 
     return fig
 
