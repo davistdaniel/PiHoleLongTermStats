@@ -19,7 +19,11 @@ from piholelongtermstats.process import (
     prepare_hourly_aggregated_data,
 )
 from piholelongtermstats.stats import compute_stats
-from piholelongtermstats.plot import generate_plot_data, generate_client_activity_over_time, generate_queries_over_time
+from piholelongtermstats.plot import (
+    generate_plot_data,
+    generate_client_activity_over_time,
+    generate_queries_over_time,
+)
 
 __version__ = "0.2.1"
 
@@ -94,6 +98,7 @@ logging.info(f"PIHOLE_LT_STATS_NDOMAINS : {args.n_domains}")
 logging.info(f"PIHOLE_LT_STATS_TIMEZONE : {args.timezone}")
 logging.info(f"PIHOLE_LT_STATS_IGNORE_DOMAINS : {args.ignore_domains}")
 logging.info("Initializing PiHoleLongTermStats Dashboard")
+
 
 def serve_layout(
     db_path,
@@ -193,8 +198,12 @@ def serve_layout(
 
     # generate initial plots
 
-    initial_filtered_fig = generate_queries_over_time(callback_data=callback_data,client=None)
-    initial_activity_fig = generate_client_activity_over_time(callback_data=callback_data,n_clients=args.n_clients,client=None)
+    initial_filtered_fig = generate_queries_over_time(
+        callback_data=callback_data, client=None
+    )
+    initial_activity_fig = generate_client_activity_over_time(
+        callback_data=callback_data, n_clients=args.n_clients, client=None
+    )
 
     layout = html.Div(
         [
@@ -699,12 +708,12 @@ def serve_layout(
                         id="client-filter",
                         placeholder="Select a Client",
                     ),
-                    dcc.Graph(id="filtered-view",figure=initial_filtered_fig),
+                    dcc.Graph(id="filtered-view", figure=initial_filtered_fig),
                     html.H2("Client Activity Over Time"),
                     html.H5(
                         "Client acitivity for all clients. The data is aggregated hourly."
                     ),
-                    dcc.Graph(id="client-activity-view",figure=initial_activity_fig),
+                    dcc.Graph(id="client-activity-view", figure=initial_activity_fig),
                 ],
                 className="cardplot",
             ),
@@ -1033,6 +1042,7 @@ app.layout = html.Div(
 del initial_layout
 gc.collect()
 
+
 @app.callback(
     Output("page-container", "children"),
     Input("reload-button", "n_clicks"),
@@ -1092,7 +1102,7 @@ def update_filtered_view(client, n_clicks):
     logging.info("Updating Queries over time plot...")
     global PHLTS_CALLBACK_DATA
 
-    fig = generate_queries_over_time(callback_data=PHLTS_CALLBACK_DATA,client=client)
+    fig = generate_queries_over_time(callback_data=PHLTS_CALLBACK_DATA, client=client)
 
     return fig
 
@@ -1107,7 +1117,9 @@ def update_client_activity(client, n_clicks):
     logging.info("Updating Client activity over time plot...")
     global PHLTS_CALLBACK_DATA
 
-    fig = generate_client_activity_over_time(callback_data=PHLTS_CALLBACK_DATA,n_clients=args.n_clients,client=client)
+    fig = generate_client_activity_over_time(
+        callback_data=PHLTS_CALLBACK_DATA, n_clients=args.n_clients, client=client
+    )
 
     return fig
 

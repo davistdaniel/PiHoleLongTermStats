@@ -146,7 +146,7 @@ def generate_plot_data(df, n_clients, n_domains):
     }
 
 
-def generate_queries_over_time(callback_data,client=None):
+def generate_queries_over_time(callback_data, client=None):
     dff_grouped = callback_data["hourly_agg"]
 
     if client is not None:
@@ -163,7 +163,9 @@ def generate_queries_over_time(callback_data,client=None):
 
     if dff_grouped.empty:
         fig = px.area(
-            title=f"No activity available for {client}" if client else "No activity available",
+            title=f"No activity available for {client}"
+            if client
+            else "No activity available",
             template="plotly_white",
         )
         fig.update_layout(
@@ -236,8 +238,8 @@ def generate_queries_over_time(callback_data,client=None):
 
     return fig
 
-def generate_client_activity_over_time(callback_data,n_clients,client=None):
 
+def generate_client_activity_over_time(callback_data, n_clients, client=None):
     dff_grouped = callback_data["hourly_agg"]
     top_clients = callback_data["top_clients"]
 
@@ -259,7 +261,9 @@ def generate_client_activity_over_time(callback_data,n_clients,client=None):
 
     if dff_grouped.empty:
         fig = px.area(
-            title=f"No activity available for {client}" if client else "No activity available",
+            title=f"No activity available for {client}"
+            if client
+            else "No activity available",
             template="plotly_white",
         )
         fig.update_layout(
@@ -277,7 +281,6 @@ def generate_client_activity_over_time(callback_data,n_clients,client=None):
             ],
         )
         return fig
-
 
     all_times = pd.date_range(
         dff_grouped["timestamp"].min(), dff_grouped["timestamp"].max(), freq="h"
@@ -322,4 +325,3 @@ def generate_client_activity_over_time(callback_data,n_clients,client=None):
     gc.collect()
 
     return fig
-
