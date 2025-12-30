@@ -5,6 +5,8 @@
 import logging
 import pandas as pd
 import gc
+import plotly.express as px
+import itertools
 
 
 def generate_plot_data(df, n_clients, n_domains):
@@ -142,3 +144,139 @@ def generate_plot_data(df, n_clients, n_domains):
         "blocked_day_hour_heatmap": blocked_day_hour_heatmap,
         "allowed_day_hour_heatmap": allowed_day_hour_heatmap,
     }
+
+
+def generate_queries_over_time(callback_data,client=None):
+    dff_grouped = callback_data["hourly_agg"]
+
+    if client is not None:
+        logging.info(f"Selected client : {client}")
+        dff_grouped = dff_grouped[dff_grouped["client"] == client]
+        title_text = f"DNS Queries Over Time for {client}"
+    else:
+        dff_grouped = (
+            dff_grouped.groupby(["timestamp", "status_type"])["count"]
+            .sum()
+            .reset_index()
+        )
+        title_text = "DNS Queries Over Time for All Clients"
+
+    # Fill missing data with 0
+    all_times = pd.date_range(
+        dff_grouped["timestamp"].min(), dff_grouped["timestamp"].max(), freq="h"
+    )
+    status_types = ["Other", "Allowed", "Blocked"]
+    full_index = pd.MultiIndex.from_product(
+        [all_times, status_types], names=["timestamp", "status_type"]
+    )
+    dff_grouped = (
+        dff_grouped.set_index(["timestamp", "status_type"])
+        .reindex(full_index, fill_value=0)
+        .reset_index()
+    )
+    dff_grouped["status_type"] = pd.Categorical(
+        dff_grouped["status_type"], categories=status_types, ordered=True
+    )
+    dff_grouped = dff_grouped.sort_values("status_type")
+
+    fig = px.area(
+        dff_grouped,
+        x="timestamp",
+        y="count",
+        color="status_type",
+        line_group="status_type",
+        title=title_text,
+        color_discrete_map={
+            "Allowed": "#10b981",
+            "Blocked": "#ef4444",
+            "Other": "#b99529",
+        },
+        template="plotly_white",
+        labels={
+            "timestamp": "Date",
+            "count": "Count",
+            "status_type": "Query Status",
+        },
+    )
+
+    fig.update_traces(
+        mode="lines",
+        line_shape="spline",
+        line=dict(width=0.5),
+        stackgroup="one",
+    )
+
+    fig.update_layout(
+        legend=dict(orientation="h", yanchor="top", y=-0.4, xanchor="center", x=0.5)
+    )
+
+    del dff_grouped
+    gc.collect()
+
+    return fig
+
+def generate_client_activity_over_time(callback_data,n_clients,client=None):
+
+    dff_grouped = callback_data["hourly_agg"]
+    top_clients = callback_data["top_clients"]
+
+    if client:
+        logging.info(f"Selected client : {client}")
+        dff_grouped = dff_grouped[dff_grouped["client"] == client]
+        dff_grouped = (
+            dff_grouped.groupby(["timestamp", "client"])["count"].sum().reset_index()
+        )
+        title_text = f"Activity for {client}"
+        clients_to_show = [client]
+    else:
+        dff_grouped = dff_grouped[dff_grouped["client"].isin(top_clients)]
+        dff_grouped = (
+            dff_grouped.groupby(["timestamp", "client"])["count"].sum().reset_index()
+        )
+        title_text = f"Activity for top {n_clients} clients"
+        clients_to_show = top_clients
+
+    all_times = pd.date_range(
+        dff_grouped["timestamp"].min(), dff_grouped["timestamp"].max(), freq="h"
+    )
+    full_index = pd.MultiIndex.from_product(
+        [all_times, clients_to_show], names=["timestamp", "client"]
+    )
+    pivot_df = (
+        dff_grouped.set_index(["timestamp", "client"])
+        .reindex(full_index, fill_value=0)
+        .reset_index()
+    )
+
+    default_colors = px.colors.qualitative.Plotly
+    client_color_map = dict(zip(top_clients, itertools.cycle(default_colors)))
+
+    fig = px.area(
+        pivot_df,
+        x="timestamp",
+        y="count",
+        color="client",
+        line_group="client",
+        title=title_text,
+        color_discrete_map=client_color_map,
+        template="plotly_white",
+        labels={"timestamp": "Date", "count": "Count", "client": "Client IP"},
+    )
+
+    fig.update_traces(
+        mode="lines",
+        line_shape="spline",
+        line=dict(width=0.2),
+        stackgroup="one",
+        connectgaps=False,
+    )
+
+    fig.update_layout(
+        legend=dict(orientation="h", yanchor="top", y=-0.4, xanchor="center", x=0.5)
+    )
+
+    del dff_grouped, pivot_df
+    gc.collect()
+
+    return fig
+
