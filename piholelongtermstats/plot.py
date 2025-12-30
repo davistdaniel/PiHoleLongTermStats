@@ -161,6 +161,27 @@ def generate_queries_over_time(callback_data,client=None):
         )
         title_text = "DNS Queries Over Time for All Clients"
 
+    if dff_grouped.empty:
+        fig = px.area(
+            title=f"No activity available for {client}" if client else "No activity available",
+            template="plotly_white",
+        )
+        fig.update_layout(
+            xaxis_title="Date",
+            yaxis_title="Count",
+            annotations=[
+                dict(
+                    text="No data to display",
+                    x=0.5,
+                    y=0.5,
+                    xref="paper",
+                    yref="paper",
+                    showarrow=False,
+                )
+            ],
+        )
+        return fig
+
     # Fill missing data with 0
     all_times = pd.date_range(
         dff_grouped["timestamp"].min(), dff_grouped["timestamp"].max(), freq="h"
@@ -220,7 +241,7 @@ def generate_client_activity_over_time(callback_data,n_clients,client=None):
     dff_grouped = callback_data["hourly_agg"]
     top_clients = callback_data["top_clients"]
 
-    if client:
+    if client is not None:
         logging.info(f"Selected client : {client}")
         dff_grouped = dff_grouped[dff_grouped["client"] == client]
         dff_grouped = (
@@ -235,6 +256,28 @@ def generate_client_activity_over_time(callback_data,n_clients,client=None):
         )
         title_text = f"Activity for top {n_clients} clients"
         clients_to_show = top_clients
+
+    if dff_grouped.empty:
+        fig = px.area(
+            title=f"No activity available for {client}" if client else "No activity available",
+            template="plotly_white",
+        )
+        fig.update_layout(
+            xaxis_title="Date",
+            yaxis_title="Count",
+            annotations=[
+                dict(
+                    text="No data to display",
+                    x=0.5,
+                    y=0.5,
+                    xref="paper",
+                    yref="paper",
+                    showarrow=False,
+                )
+            ],
+        )
+        return fig
+
 
     all_times = pd.date_range(
         dff_grouped["timestamp"].min(), dff_grouped["timestamp"].max(), freq="h"
