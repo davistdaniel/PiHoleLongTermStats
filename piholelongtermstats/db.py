@@ -1,5 +1,5 @@
 ## Author :  Davis T. Daniel
-## PiHoleLongTermStats v.0.2.2
+## PiHoleLongTermStats v.0.2.3
 ## License :  MIT
 
 import sqlite3
@@ -8,7 +8,7 @@ from pathlib import Path
 import psutil
 import pandas as pd
 import logging
-from zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import gc
 
 
@@ -31,13 +31,19 @@ def connect_to_sql(db_path):
 
 
 def probe_sample_df(conn):
-    """compute basic stats from a subset of the databases"""
-
-    # calculate safe chunksize to not overload system memory
+    """Calculate safe chunksize based on available memory and retrieve timestamp range.
+    
+    Analyzes a sample of the database to estimate memory requirements per row
+    and retrieves the oldest and latest timestamps in the database.
+    """
     sample_query = """SELECT id, timestamp, type, status, domain, client, reply_time
-    FROM queries LIMIT 5"""
+    FROM queries LIMIT 100"""
     sample_df = pd.read_sql_query(sample_query, conn)
+    if sample_df.empty:
+        raise ValueError("No data from database for the selected time frame.")
+    
     sample_df["timestamp"] = pd.to_datetime(sample_df["timestamp"], unit="s")
+
 
     available_memory = psutil.virtual_memory().available
     memory_per_row = sample_df.memory_usage(deep=True).sum() / len(sample_df)
@@ -63,7 +69,7 @@ def probe_sample_df(conn):
 def get_timestamp_range(days, start_date, end_date, timezone):
     try:
         tz = ZoneInfo(timezone)
-    except Exception:
+    except ZoneInfoNotFoundError:
         logging.warning(f"Invalid timezone '{timezone}', using UTC")
         tz = ZoneInfo("UTC")
 
@@ -120,11 +126,13 @@ def read_pihole_ftl_db(
         f"Reading data from PiHole-FTL database(s) for timestamps ranging from {start_timestamp} to {end_timestamp} (TZ: UTC)..."
     )
 
-    query = f"""
+    # no sql injection
+    query = """
     SELECT id, timestamp, type, status, domain, client, reply_time	 
     FROM queries
-    WHERE timestamp >= {start_timestamp} AND timestamp < {end_timestamp};
+    WHERE timestamp >= ? AND timestamp < ?;
     """
+    params = [start_timestamp, end_timestamp]
 
     for db_idx, db_path in enumerate(db_paths):
         logging.info(
@@ -132,12 +140,13 @@ def read_pihole_ftl_db(
         )
         conn = connect_to_sql(db_path)
 
-        chunk_num = 0
-        for chunk in pd.read_sql_query(query, conn, chunksize=chunksize[db_idx]):
-            chunk_num += 1
-            logging.info(
-                f"Processing dataframe chunk {chunk_num} from database {db_idx + 1} at {db_path}..."
-            )
-            yield chunk
-
-        conn.close()
+        try:
+            chunk_num = 0
+            for chunk in pd.read_sql_query(query, conn, params=params, chunksize=chunksize[db_idx]):
+                chunk_num += 1
+                logging.info(
+                    f"Processing dataframe chunk {chunk_num} from database {db_idx + 1} at {db_path}..."
+                )
+                yield chunk
+        finally:
+            conn.close()
