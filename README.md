@@ -1,7 +1,17 @@
-# Pi Hole Long Term Statistics v.0.2.2
+# Pi Hole Long Term Statistics v.0.2.3
+
+<div align="center">
+
+![PyPI - Version](https://img.shields.io/pypi/v/piholelongtermstats)
+![GitHub last commit](https://img.shields.io/github/last-commit/davistdaniel/piholelongtermstats)
+![GitHub License](https://img.shields.io/github/license/davistdaniel/piholelongtermstats)
+![phlts_tests](https://img.shields.io/github/actions/workflow/status/davistdaniel/piholelongtermstats/run-tests.yml?label=tests)
+
+
+
+</div>
 
 A dashboard built with **Dash** and **Plotly** to explore long-term DNS query data from **Pi-hole v.6** FTL database files. Visualize allowed vs blocked domains, top clients, and query trends over time. I originally made this for my own use, but if you find it useful, a ⭐ would be awesome!
-
 
 **Disclaimer : This is an unofficial, third-party project. The Pi Hole team and the development of [PiHole](https://pi-hole.net/) software is not related to this project.**
 

@@ -1,14 +1,22 @@
 ## Author :  Davis T. Daniel
-## PiHoleLongTermStats v.0.2.2
+## PiHoleLongTermStats v.0.2.3
 ## License :  MIT
 
 import re
 import logging
-from zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import pandas as pd
 
 
 def _is_valid_regex(pattern):
+    """Check if a string is a valid regular expression pattern.
+    
+    Args:
+        pattern: String to validate as regex pattern.
+        
+    Returns:
+        bool: True if pattern is valid regex, False otherwise.
+    """
     try:
         re.compile(pattern)
         return True
@@ -17,6 +25,15 @@ def _is_valid_regex(pattern):
 
 
 def regex_ignore_domains(df, pattern):
+    """Filter out rows where domain matches the given regex pattern.
+    
+    Args:
+        df: DataFrame containing a 'domain' column.
+        pattern: Regex pattern to match domains for exclusion.
+        
+    Returns:
+        DataFrame with matching domains removed, or original DataFrame if pattern is invalid.
+    """
     if _is_valid_regex(pattern):
         mask = df["domain"].str.contains(pattern, regex=True, na=False)
         return df[~mask].reset_index(drop=True)
@@ -33,9 +50,9 @@ def preprocess_df(df, timezone="UTC"):
     logging.info("Pre-processing dataframe...")
 
     try:
-        tz = ZoneInfo(timezone)  # noqa: F841
-    except Exception as e:
-        logging.warning(f"Invalid timezone '{timezone}', falling back to UTC: {e}")
+        ZoneInfo(timezone)
+    except ZoneInfoNotFoundError:
+        logging.warning(f"Invalid timezone '{timezone}', falling back to UTC")
         timezone = "UTC"
 
     logging.info(f"Selected timezone : {timezone}")
@@ -51,13 +68,13 @@ def preprocess_df(df, timezone="UTC"):
 
     # status ids for pihole ftl db, see pi-hole FTL docs
     logging.info("Processing allowed and blocked status codes...")
-    allowed_statuses = [2, 3, 12, 13, 14, 17]
-    blocked_statuses = [1, 4, 5, 6, 7, 8, 9, 10, 11, 15, 16, 18]
-    df["status_type"] = df["status"].apply(
-        lambda x: "Allowed"
-        if x in allowed_statuses
-        else ("Blocked" if x in blocked_statuses else "Other")
-    )
+    allowed_statuses = {2, 3, 12, 13, 14, 17}
+    blocked_statuses = {1, 4, 5, 6, 7, 8, 9, 10, 11, 15, 16, 18}
+    
+    # Use vectorized operations for better performance
+    df["status_type"] = "Other"
+    df.loc[df["status"].isin(allowed_statuses), "status_type"] = "Allowed"
+    df.loc[df["status"].isin(blocked_statuses), "status_type"] = "Blocked"
 
     df["day_name"] = df["timestamp"].dt.day_name()
     df["reply_time"] = pd.to_numeric(df["reply_time"], errors="coerce")
@@ -67,7 +84,16 @@ def preprocess_df(df, timezone="UTC"):
 
 
 def prepare_hourly_aggregated_data(df, n_clients):
-    """Pre-aggregate data by hour"""
+    """Pre-aggregate data by hour for callback processing.
+    
+    Args:
+        df: Pre-processed DataFrame with timestamp, status_type, and client columns.
+        n_clients: Number of top clients to identify for client activity views.
+        
+    Returns:
+        dict: Contains 'hourly_agg' DataFrame with hourly aggregations and 
+              'top_clients' list of top n_clients client identifiers.
+    """
     logging.info("Pre-aggregating data by hour for callbacks...")
 
     # aggregate by hour, status_type, and client

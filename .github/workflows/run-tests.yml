@@ -3,7 +3,7 @@ name: Run tests for piholelongtermstats
 on:
   push:
     paths:
-      - "app.py"
+      - "piholelongtermstats/**"
       - "tests/**"
       - ".github/workflows/run-tests.yml"
 
@@ -28,4 +28,4 @@ jobs:
 
       - name: Run tests with coverage
         run: |
-          python -m pytest tests/phlts_tests.py -v -s --cov=piholelongtermstats --cov-report term-missing
+          python -m pytest tests/ -v -s --cov=piholelongtermstats --cov-report term-missing

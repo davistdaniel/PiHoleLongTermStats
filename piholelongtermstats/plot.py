@@ -1,5 +1,5 @@
 ## Author :  Davis T. Daniel
-## PiHoleLongTermStats v.0.2.2
+## PiHoleLongTermStats v.0.2.3
 ## License :  MIT
 
 import logging
@@ -10,7 +10,16 @@ import itertools
 
 
 def generate_plot_data(df, n_clients, n_domains):
-    """Generate plot data"""
+    """Generate plot data for dashboard visualizations.
+    
+    Args:
+        df: Pre-processed DataFrame with query data.
+        n_clients: Number of top clients to include in plots.
+        n_domains: Number of top domains to include in plots.
+        
+    Returns:
+        dict: Dictionary containing DataFrames and data for various plots.
+    """
 
     logging.info("Generating plot data...")
 
@@ -24,17 +33,19 @@ def generate_plot_data(df, n_clients, n_domains):
         .size()
         .reset_index(name="count")
     )
-    top_clients_stacked["client"] = pd.Categorical(
-        top_clients_stacked["client"],
-        categories=top_clients_stacked.groupby("client")["count"]
-        .sum()
-        .sort_values(ascending=False)
-        .index,
-        ordered=True,
-    )
-    top_clients_stacked = top_clients_stacked.sort_values(
-        ["client", "count"], ascending=[True, False]
-    )
+    
+    if not top_clients_stacked.empty:
+        top_clients_stacked["client"] = pd.Categorical(
+            top_clients_stacked["client"],
+            categories=top_clients_stacked.groupby("client")["count"]
+            .sum()
+            .sort_values(ascending=False)
+            .index,
+            ordered=True,
+        )
+        top_clients_stacked = top_clients_stacked.sort_values(
+            ["client", "count"], ascending=[True, False]
+        )
     logging.info("Generated plot data for top clients.")
 
     # plot data for allowed and blocked domains
@@ -46,7 +57,7 @@ def generate_plot_data(df, n_clients, n_domains):
         .value_counts()
         .nlargest(n_domains)
         .reset_index()
-        .rename(columns={"index": "Count", "domain": "Domain"})
+        .rename(columns={"domain": "Domain", "count": "count"})
     )
 
     tmp_allowed = df[df["status_type"] == "Allowed"].copy()
@@ -57,7 +68,7 @@ def generate_plot_data(df, n_clients, n_domains):
         .value_counts()
         .nlargest(n_domains)
         .reset_index()
-        .rename(columns={"index": "Count", "domain": "Domain"})
+        .rename(columns={"domain": "Domain", "count": "count"})
     )
 
     logging.info("Generated plot data for allowed and blocked domains.")
@@ -131,6 +142,11 @@ def generate_plot_data(df, n_clients, n_domains):
     gc.collect()
 
     logging.info("Plot data generation complete")
+    
+    if not df.empty:
+        data_span_days = (df["timestamp"].max() - df["timestamp"].min()).days
+    else:
+        data_span_days = 0
 
     return {
         "top_clients_stacked": top_clients_stacked,
@@ -138,7 +154,7 @@ def generate_plot_data(df, n_clients, n_domains):
         "allowed_df": allowed_df,
         "reply_time_df": reply_time_df,
         "client_list": client_list,
-        "data_span_days": (df["timestamp"].max() - df["timestamp"].min()).days,
+        "data_span_days": data_span_days,
         "client_domain_scatter_df": client_domain_scatter_df,
         "day_hour_heatmap": day_hour_heatmap,
         "blocked_day_hour_heatmap": blocked_day_hour_heatmap,
@@ -147,6 +163,15 @@ def generate_plot_data(df, n_clients, n_domains):
 
 
 def generate_queries_over_time(callback_data, client=None):
+    """Generate an area chart showing DNS queries over time.
+    
+    Args:
+        callback_data: Dictionary containing hourly aggregation data.
+        client: Optional client filter to show queries for a specific client.
+        
+    Returns:
+        plotly.graph_objects.Figure: Area chart of queries over time.
+    """
     dff_grouped = callback_data["hourly_agg"]
 
     if client is not None:
@@ -240,6 +265,16 @@ def generate_queries_over_time(callback_data, client=None):
 
 
 def generate_client_activity_over_time(callback_data, n_clients, client=None):
+    """Generate an area chart showing client activity over time.
+    
+    Args:
+        callback_data: Dictionary containing hourly aggregation data and top clients list.
+        n_clients: Number of top clients to display when no specific client is selected.
+        client: Optional client filter to show activity for a specific client.
+        
+    Returns:
+        plotly.graph_objects.Figure: Area chart of client activity over time.
+    """
     dff_grouped = callback_data["hourly_agg"]
     top_clients = callback_data["top_clients"]
 
@@ -295,7 +330,8 @@ def generate_client_activity_over_time(callback_data, n_clients, client=None):
     )
 
     default_colors = px.colors.qualitative.Plotly
-    client_color_map = dict(zip(top_clients, itertools.cycle(default_colors)))
+    # build color map for all clients that will be shown (not just top_clients)
+    client_color_map = dict(zip(clients_to_show, itertools.cycle(default_colors)))
 
     fig = px.area(
         pivot_df,

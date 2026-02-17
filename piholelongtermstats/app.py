@@ -1,5 +1,5 @@
 ## Author :  Davis T. Daniel
-## PiHoleLongTermStats v.0.2.2
+## PiHoleLongTermStats v.0.2.3
 ## License :  MIT
 
 import os
@@ -25,7 +25,7 @@ from piholelongtermstats.plot import (
     generate_queries_over_time,
 )
 
-__version__ = "0.2.1"
+__version__ = "0.2.3"
 
 # logging setup
 logging.basicConfig(
@@ -629,9 +629,15 @@ def serve_layout(
                             html.Div(
                                 [
                                     html.H3("Longest Idle Period"),
-                                    html.P(f"{stats['max_idle_ms']:,.0f} s"),
                                     html.P(
-                                        f"Between {stats['before_gap']} and {stats['after_gap']}",
+                                        f"{stats['max_idle_ms']:,.0f} s"
+                                        if stats['max_idle_ms'] is not None
+                                        else "N/A"
+                                    ),
+                                    html.P(
+                                        f"Between {stats['before_gap']} and {stats['after_gap']}"
+                                        if stats['before_gap'] and stats['after_gap']
+                                        else "N/A",
                                         style={"fontSize": "14px", "color": "#777"},
                                     ),
                                 ],
@@ -652,7 +658,9 @@ def serve_layout(
                                         },
                                     ),
                                     html.P(
-                                        f"Avg reply time: {stats['slowest_avg_reply_time'] * 1000:.2f} ms",
+                                        f"Avg reply time: {stats['slowest_avg_reply_time'] * 1000:.2f} ms"
+                                        if stats['slowest_avg_reply_time']
+                                        else "N/A",
                                         style={"fontSize": "14px", "color": "#777"},
                                     ),
                                 ],
@@ -993,11 +1001,13 @@ chunksize_list, latest_ts_list, oldest_ts_list = (
 
 for db in db_paths:
     conn = connect_to_sql(db)
-    chunksize, latest_ts, oldest_ts = probe_sample_df(conn)
-    chunksize_list.append(chunksize)
-    latest_ts_list.append(latest_ts.tz_convert(ZoneInfo(args.timezone)))
-    oldest_ts_list.append(oldest_ts.tz_convert(ZoneInfo(args.timezone)))
-    conn.close()
+    try:
+        chunksize, latest_ts, oldest_ts = probe_sample_df(conn)
+        chunksize_list.append(chunksize)
+        latest_ts_list.append(latest_ts.tz_convert(ZoneInfo(args.timezone)))
+        oldest_ts_list.append(oldest_ts.tz_convert(ZoneInfo(args.timezone)))
+    finally:
+        conn.close()
 
 logging.info(
     f"Latest date-time from all databases : {max(latest_ts_list)} (TZ: {args.timezone})"
@@ -1063,11 +1073,13 @@ def reload_page(n_clicks, start_date, end_date):
 
     for db in db_paths:
         conn = connect_to_sql(db)
-        chunksize, latest_ts, oldest_ts = probe_sample_df(conn)
-        chunksize_list.append(chunksize)
-        latest_ts_list.append(latest_ts.tz_convert(ZoneInfo(args.timezone)))
-        oldest_ts_list.append(oldest_ts.tz_convert(ZoneInfo(args.timezone)))
-        conn.close()
+        try:
+            chunksize, latest_ts, oldest_ts = probe_sample_df(conn)
+            chunksize_list.append(chunksize)
+            latest_ts_list.append(latest_ts.tz_convert(ZoneInfo(args.timezone)))
+            oldest_ts_list.append(oldest_ts.tz_convert(ZoneInfo(args.timezone)))
+        finally:
+            conn.close()
 
     logging.info(
         f"Latest date-time from all databases : {max(latest_ts_list)} (TZ: {args.timezone})"
