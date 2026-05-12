@@ -1,4 +1,4 @@
-# Pi Hole Long Term Statistics v.0.2.3
+# Pi Hole Long Term Statistics v.0.2.4
 
 <div align="center">
 
@@ -257,6 +257,28 @@ You can configure the application using command-line arguments or environment va
 ## 🧑‍💻 Contributing
 
 Any contribution, feature ideas or bug fixes are always welcome.
+This project uses uv for dependency management.
+
+### Development workflow
+* Clone the repository.
+
+    ```bash
+    git clone https://github.com/davistdaniel/PiHoleLongTermStats.git
+    cd PiHoleLongTermStats
+    ```
+    
+* From the project directory (with uv already installed), install dependencies:
+
+    ```bash
+    uv sync --extra develop
+    ```
+* Run the test suite:
+
+    ```bash
+    uv run python -m pytest tests/ -v -s --cov=piholelongtermstats --cov-report term-missing
+    ```
+* Make your changes.
+* Submit a pull request.
 
 ## Star History
 
