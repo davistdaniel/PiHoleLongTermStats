@@ -5,6 +5,8 @@ from piholelongtermstats.plot import (
     generate_plot_data,
     generate_queries_over_time,
     generate_client_activity_over_time,
+    generate_top_blocked_domains,
+    generate_top_allowed_domains,
 )
 from piholelongtermstats.process import prepare_hourly_aggregated_data
 
@@ -32,6 +34,8 @@ class TestGeneratePlotData:
             "top_clients_stacked",
             "blocked_df",
             "allowed_df",
+            "blocked_df_by_client",
+            "allowed_df_by_client",
             "reply_time_df",
             "client_list",
             "data_span_days",
@@ -80,6 +84,44 @@ class TestGeneratePlotData:
         
         assert len(blocked_df) <= n_domains
         assert len(allowed_df) <= n_domains
+
+        blocked_df_by_client = result["blocked_df_by_client"]
+        allowed_df_by_client = result["allowed_df_by_client"]
+
+        assert isinstance(blocked_df_by_client, pd.DataFrame)
+        assert isinstance(allowed_df_by_client, pd.DataFrame)
+        assert "client" in blocked_df_by_client.columns
+        assert "client" in allowed_df_by_client.columns
+
+    def test_generate_top_blocked_domains_function(self, plot_dataframe):
+        n_clients = 5
+        n_domains = 10
+        result = generate_plot_data(plot_dataframe, n_clients, n_domains)
+        callback_data = result
+
+        fig = generate_top_blocked_domains(callback_data, n_domains=n_domains)
+        assert isinstance(fig, go.Figure)
+        assert "Top" in fig.layout.title.text
+
+        client = plot_dataframe["client"].iloc[0]
+        fig_client = generate_top_blocked_domains(callback_data, n_domains=n_domains, client=client)
+        assert isinstance(fig_client, go.Figure)
+        assert client in fig_client.layout.title.text
+
+    def test_generate_top_allowed_domains_function(self, plot_dataframe):
+        n_clients = 5
+        n_domains = 10
+        result = generate_plot_data(plot_dataframe, n_clients, n_domains)
+        callback_data = result
+
+        fig = generate_top_allowed_domains(callback_data, n_domains=n_domains)
+        assert isinstance(fig, go.Figure)
+        assert "Top" in fig.layout.title.text
+
+        client = plot_dataframe["client"].iloc[0]
+        fig_client = generate_top_allowed_domains(callback_data, n_domains=n_domains, client=client)
+        assert isinstance(fig_client, go.Figure)
+        assert client in fig_client.layout.title.text
 
     def test_generate_plot_data_reply_time_df(self, plot_dataframe):
         """Test reply time dataframe."""

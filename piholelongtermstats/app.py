@@ -23,6 +23,8 @@ from piholelongtermstats.plot import (
     generate_plot_data,
     generate_client_activity_over_time,
     generate_queries_over_time,
+    generate_top_blocked_domains,
+    generate_top_allowed_domains,
 )
 
 __version__ = "0.2.4"
@@ -189,6 +191,10 @@ def serve_layout(
     callback_data = {
         "hourly_agg": hourly_data["hourly_agg"],
         "top_clients": hourly_data["top_clients"],
+        "blocked_df": plot_data["blocked_df"],
+        "allowed_df": plot_data["allowed_df"],
+        "blocked_df_by_client": plot_data["blocked_df_by_client"],
+        "allowed_df_by_client": plot_data["allowed_df_by_client"],
         "data_span_days": plot_data["data_span_days"],
     }
 
@@ -707,8 +713,6 @@ def serve_layout(
             html.Br(),
             html.Div(
                 [
-                    html.H2("Queries over time"),
-                    html.H5("Queries from all clients. The data is aggregated hourly."),
                     dcc.Dropdown(
                         options=[
                             {"label": c, "value": c} for c in plot_data["client_list"]
@@ -716,6 +720,8 @@ def serve_layout(
                         id="client-filter",
                         placeholder="Select a Client",
                     ),
+                    html.H2("Queries over time"),
+                    html.H5("Queries from all clients. The data is aggregated hourly."),
                     dcc.Graph(id="filtered-view", figure=initial_filtered_fig),
                     html.H2("Client Activity Over Time"),
                     html.H5(
@@ -1134,6 +1140,31 @@ def update_client_activity(client, n_clicks):
     )
 
     return fig
+
+
+@app.callback(
+    Output("top-blocked-domains", "figure"),
+    Output("top-allowed-domains", "figure"),
+    Input("client-filter", "value"),
+    Input("reload-button", "n_clicks"),
+    prevent_initial_call=True,
+)
+def update_top_domains(client, n_clicks):
+    logging.info("Updating top blocked and allowed domain plots...")
+    global PHLTS_CALLBACK_DATA
+
+    blocked_fig = generate_top_blocked_domains(
+        callback_data=PHLTS_CALLBACK_DATA,
+        n_domains=args.n_domains,
+        client=client,
+    )
+    allowed_fig = generate_top_allowed_domains(
+        callback_data=PHLTS_CALLBACK_DATA,
+        n_domains=args.n_domains,
+        client=client,
+    )
+
+    return blocked_fig, allowed_fig
 
 
 def run():

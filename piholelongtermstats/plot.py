@@ -8,7 +8,6 @@ import gc
 import plotly.express as px
 import itertools
 
-
 def generate_plot_data(df, n_clients, n_domains):
     """Generate plot data for dashboard visualizations.
     
@@ -70,6 +69,22 @@ def generate_plot_data(df, n_clients, n_domains):
         .reset_index()
         .rename(columns={"domain": "Domain", "count": "count"})
     )
+
+    blocked_df_by_client = (
+        tmp_blocked.groupby(["client", "domain"]).size().reset_index(name="count")
+    )
+    blocked_df_by_client["Domain"] = blocked_df_by_client["domain"].apply(shorten)
+    blocked_df_by_client = blocked_df_by_client[
+        ["client", "Domain", "count"]
+    ].sort_values(["client", "count"], ascending=[True, False])
+
+    allowed_df_by_client = (
+        tmp_allowed.groupby(["client", "domain"]).size().reset_index(name="count")
+    )
+    allowed_df_by_client["Domain"] = allowed_df_by_client["domain"].apply(shorten)
+    allowed_df_by_client = allowed_df_by_client[
+        ["client", "Domain", "count"]
+    ].sort_values(["client", "count"], ascending=[True, False])
 
     logging.info("Generated plot data for allowed and blocked domains.")
 
@@ -152,6 +167,8 @@ def generate_plot_data(df, n_clients, n_domains):
         "top_clients_stacked": top_clients_stacked,
         "blocked_df": blocked_df,
         "allowed_df": allowed_df,
+        "blocked_df_by_client": blocked_df_by_client,
+        "allowed_df_by_client": allowed_df_by_client,
         "reply_time_df": reply_time_df,
         "client_list": client_list,
         "data_span_days": data_span_days,
@@ -361,4 +378,65 @@ def generate_client_activity_over_time(callback_data, n_clients, client=None):
     del dff_grouped, pivot_df
     gc.collect()
 
+    return fig
+
+def generate_top_blocked_domains(callback_data, n_domains, client=None):
+    logging.info("Generating top blocked domains plot...")
+    if client is not None:
+        dff = callback_data.get("blocked_df_by_client", pd.DataFrame()).copy()
+        dff = dff[dff["client"] == client]
+        dff = dff.nlargest(n_domains, "count").reset_index(drop=True)
+        title_txt = f"Domains for {client}"
+    else:
+        dff = callback_data.get("blocked_df", pd.DataFrame()).copy()
+        title_txt = ""
+
+    return _build_top_domain_figure(dff, title_txt, "#ef4444")
+
+
+def generate_top_allowed_domains(callback_data, n_domains, client=None):
+    logging.info("Generating top allowed domains plot...")
+    if client is not None:
+        dff = callback_data.get("allowed_df_by_client", pd.DataFrame()).copy()
+        dff = dff[dff["client"] == client]
+        dff = dff.nlargest(n_domains, "count").reset_index(drop=True)
+        title_txt = f"Domains for {client}"
+    else:
+        dff = callback_data.get("allowed_df", pd.DataFrame()).copy()
+        title_txt = ""
+
+    return _build_top_domain_figure(dff, title_txt, "#10b981")
+
+def _build_top_domain_figure(domain_df, title_txt, color):
+    if domain_df is None or domain_df.empty:
+        fig = px.bar(
+            pd.DataFrame({"Domain": [], "count": []}),
+            x="Domain",
+            y="count",
+            template="plotly_white",
+        )
+        fig.update_layout(
+            title=title_txt,
+            title_font_size=16,
+            showlegend=False,
+            margin=dict(r=0, t=50, l=0, b=0),
+            xaxis=dict(title=None, automargin=True, tickmode="auto"),
+        )
+        return fig
+
+    fig = px.bar(
+        domain_df,
+        y="count",
+        x="Domain",
+        labels={"Domain": "Domain", "count": "Count"},
+        template="plotly_white",
+        color_discrete_sequence=[color],
+    )
+    fig.update_layout(
+        title=title_txt,
+        title_font_size=16,
+        showlegend=False,
+        margin=dict(r=0, t=50, l=0, b=0),
+        xaxis=dict(title=None, automargin=True, tickmode="auto"),
+    )
     return fig
