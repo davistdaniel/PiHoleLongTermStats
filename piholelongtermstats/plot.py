@@ -218,7 +218,8 @@ def generate_queries_over_time(callback_data, client=None):
         [all_times, status_types], names=["timestamp", "status_type"]
     )
     dff_grouped = (
-        dff_grouped.set_index(["timestamp", "status_type"])
+        dff_grouped[["timestamp", "status_type", "count"]]
+        .set_index(["timestamp", "status_type"])
         .reindex(full_index, fill_value=0)
         .reset_index()
     )
