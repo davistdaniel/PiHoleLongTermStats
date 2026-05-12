@@ -1,5 +1,5 @@
 ## Author :  Davis T. Daniel
-## PiHoleLongTermStats v.0.2.3
+## PiHoleLongTermStats v.0.2.4
 ## License :  MIT
 
 import os
@@ -25,7 +25,7 @@ from piholelongtermstats.plot import (
     generate_queries_over_time,
 )
 
-__version__ = "0.2.3"
+__version__ = "0.2.4"
 
 # logging setup
 logging.basicConfig(
