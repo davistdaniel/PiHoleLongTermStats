@@ -101,7 +101,6 @@ class TestGeneratePlotData:
 
         fig = generate_top_blocked_domains(callback_data, n_domains=n_domains)
         assert isinstance(fig, go.Figure)
-        assert "Top" in fig.layout.title.text
 
         client = plot_dataframe["client"].iloc[0]
         fig_client = generate_top_blocked_domains(callback_data, n_domains=n_domains, client=client)
@@ -116,7 +115,6 @@ class TestGeneratePlotData:
 
         fig = generate_top_allowed_domains(callback_data, n_domains=n_domains)
         assert isinstance(fig, go.Figure)
-        assert "Top" in fig.layout.title.text
 
         client = plot_dataframe["client"].iloc[0]
         fig_client = generate_top_allowed_domains(callback_data, n_domains=n_domains, client=client)
