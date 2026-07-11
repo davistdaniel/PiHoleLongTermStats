@@ -996,69 +996,68 @@ def serve_layout(
 
 app = Dash(__name__)
 app.title = "PiHoleLongTermStats"
-
 if isinstance(args.db_path, str):
     db_paths = args.db_path.split(",")
 
-chunksize_list, latest_ts_list, oldest_ts_list = (
-    [],
-    [],
-    [],
-)
+def create_layout(db_paths=db_paths):
+    chunksize_list, latest_ts_list, oldest_ts_list = (
+        [],
+        [],
+        [],
+    )
 
-for db in db_paths:
-    conn = connect_to_sql(db)
-    try:
-        chunksize, latest_ts, oldest_ts = probe_sample_df(conn)
-        chunksize_list.append(chunksize)
-        latest_ts_list.append(latest_ts.tz_convert(ZoneInfo(args.timezone)))
-        oldest_ts_list.append(oldest_ts.tz_convert(ZoneInfo(args.timezone)))
-    finally:
-        conn.close()
+    for db in db_paths:
+        conn = connect_to_sql(db)
+        try:
+            chunksize, latest_ts, oldest_ts = probe_sample_df(conn)
+            chunksize_list.append(chunksize)
+            latest_ts_list.append(latest_ts.tz_convert(ZoneInfo(args.timezone)))
+            oldest_ts_list.append(oldest_ts.tz_convert(ZoneInfo(args.timezone)))
+        finally:
+            conn.close()
 
-logging.info(
-    f"Latest date-time from all databases : {max(latest_ts_list)} (TZ: {args.timezone})"
-)
-logging.info(
-    f"Oldest date-time from all databases : {min(oldest_ts_list)} (TZ: {args.timezone})"
-)
+    logging.info(
+        f"Latest date-time from all databases : {max(latest_ts_list)} (TZ: {args.timezone})"
+    )
+    logging.info(
+        f"Oldest date-time from all databases : {min(oldest_ts_list)} (TZ: {args.timezone})"
+    )
 
-# Initialize with data, no date range initially.
-PHLTS_CALLBACK_DATA, initial_layout = serve_layout(
-    db_path=args.db_path,
-    days=args.days,
-    args=args,
-    max_date_available=max(latest_ts_list),
-    min_date_available=min(oldest_ts_list),
-    chunksize_list=chunksize_list,
-    start_date=None,
-    end_date=None,
-    timezone=args.timezone,
-    ignore_domains=args.ignore_domains,
-)
+    # Initialize with data, no date range initially.
+    PHLTS_CALLBACK_DATA, initial_layout = serve_layout(
+        db_path=args.db_path,
+        days=args.days,
+        args=args,
+        max_date_available=max(latest_ts_list),
+        min_date_available=min(oldest_ts_list),
+        chunksize_list=chunksize_list,
+        start_date=None,
+        end_date=None,
+        timezone=args.timezone,
+        ignore_domains=args.ignore_domains,
+    )
 
-logging.info("Setting initial layout...")
+    logging.info("Setting initial layout...")
 
-app.layout = html.Div(
-    [
-        dcc.Loading(
-            id="loading-main",
-            type="graph",
-            fullscreen=True,
-            children=[
-                html.Div(
-                    id="page-container",
-                    children=initial_layout.children,
-                    className="container",
-                )
-            ],
-        )
-    ]
-)
+    return html.Div(
+        [
+            dcc.Loading(
+                id="loading-main",
+                type="graph",
+                fullscreen=True,
+                children=[
+                    html.Div(
+                        id="page-container",
+                        children=initial_layout.children,
+                        className="container",
+                    )
+                ],
+            )
+        ]
+    )
 
-del initial_layout
-gc.collect()
 
+app.layout = create_layout
 
 @app.callback(
     Output("page-container", "children"),
