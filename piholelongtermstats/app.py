@@ -1039,22 +1039,39 @@ PHLTS_CALLBACK_DATA, initial_layout = serve_layout(
 
 logging.info("Setting initial layout...")
 
-app.layout = html.Div(
-    [
-        dcc.Loading(
-            id="loading-main",
-            type="graph",
-            fullscreen=True,
-            children=[
-                html.Div(
-                    id="page-container",
-                    children=initial_layout.children,
-                    className="container",
-                )
-            ],
-        )
-    ]
-)
+# Holds the most recently generated page-container children. Updated by the
+# reload_page callback whenever new data is loaded. Because app.layout is a
+# function (see below), a full browser refresh re-reads this global instead
+# of the stale layout captured at container startup.
+PHLTS_PAGE_CONTAINER_CHILDREN = initial_layout.children
+
+
+def serve_app_layout():
+    """Returns the current app layout.
+
+    Dash calls this function on every full page load/browser refresh (since
+    app.layout is set to a function rather than a static object), so it
+    always reflects the latest data instead of only what existed when the
+    container started.
+    """
+    return html.Div(
+        [
+            dcc.Loading(
+                id="loading-main",
+                type="graph",
+                fullscreen=True,
+                children=[
+                    html.Div(
+                        id="page-container",
+                        children=PHLTS_PAGE_CONTAINER_CHILDREN,
+                        className="container",
+                    )
+                ],
+            )
+        ]
+    )
+
+app.layout = serve_app_layout
 
 del initial_layout
 gc.collect()
@@ -1068,7 +1085,7 @@ gc.collect()
     prevent_initial_call=True,
 )
 def reload_page(n_clicks, start_date, end_date):
-    global PHLTS_CALLBACK_DATA
+    global PHLTS_CALLBACK_DATA, PHLTS_PAGE_CONTAINER_CHILDREN
 
     logging.info(f"Reload button clicked. Selected date range: {start_date, end_date}")
 
@@ -1107,6 +1124,11 @@ def reload_page(n_clicks, start_date, end_date):
         timezone=args.timezone,
         ignore_domains=args.ignore_domains,
     )
+
+    # Persist the new layout so that a full browser refresh (which calls
+    # serve_app_layout() again) also sees the reloaded data, not just this
+    # active session's DOM.
+    PHLTS_PAGE_CONTAINER_CHILDREN = layout.children
 
     return layout.children
 
