@@ -11,7 +11,8 @@ import psutil
 import plotly.express as px
 import pandas as pd
 from datetime import datetime
-from dash import Dash, dcc, html, Input, Output, State
+from dash import Dash, dcc, html, Input, Output, State, ctx
+from dash.exceptions import PreventUpdate
 from zoneinfo import ZoneInfo
 
 from piholelongtermstats.db import read_pihole_ftl_db, connect_to_sql, probe_sample_df
@@ -99,6 +100,11 @@ parser.add_argument(
 )
 
 args = parser.parse_args()
+
+if 0 < args.refresh_interval < 3600:
+    logging.info("Refresh interval must be larger than 3600, resetting to 3600.")
+    args.refresh_interval = 3600
+
 
 logging.info("Setting environment variables:")
 logging.info(f"PIHOLE_LT_STATS_DAYS : {args.days}")
@@ -1057,9 +1063,13 @@ logging.info("Setting initial layout...")
 # function (see below), a full browser refresh re-reads this global instead
 # of the stale layout captured at container startup.
 PHLTS_PAGE_CONTAINER_CHILDREN = initial_layout.children
+now = datetime.now(ZoneInfo(args.timezone))
+PHLTS_LAST_REFRESH_TIME = now
+PHLTS_LAST_AUTO_REFRESH_TIME = now
 
 def serve_app_layout():
     """Returns the current app layout."""
+
     return html.Div(
         [
             dcc.Loading(
@@ -1076,7 +1086,7 @@ def serve_app_layout():
             ),
             dcc.Interval(
                 id="auto-refresh-interval",
-                interval=max(args.refresh_interval, 1) * 1000,  # ms
+                interval=max(int(args.refresh_interval / 5), 1) * 1000,
                 n_intervals=0,
                 disabled=(args.refresh_interval <= 0),
             ),
@@ -1098,9 +1108,16 @@ gc.collect()
     prevent_initial_call=True,
 )
 def reload_page(n_clicks, n_intervals, start_date, end_date):
-    global PHLTS_CALLBACK_DATA, PHLTS_PAGE_CONTAINER_CHILDREN
+    global PHLTS_CALLBACK_DATA, PHLTS_PAGE_CONTAINER_CHILDREN, PHLTS_LAST_REFRESH_TIME, PHLTS_LAST_AUTO_REFRESH_TIME
 
-    logging.info(f"Reload button clicked. Selected date range: {start_date, end_date}")
+    if ctx.triggered_id == "auto-refresh-interval":
+        logging.info("Auto dashboard refresh starting...")
+        now = datetime.now(ZoneInfo(args.timezone))
+        if (now - PHLTS_LAST_AUTO_REFRESH_TIME).total_seconds() < args.refresh_interval or (now - PHLTS_LAST_REFRESH_TIME).total_seconds() < 300:
+            logging.info("Auto dashboard refresh aborted.")
+            raise PreventUpdate
+
+    logging.info(f"Dashboard refresh triggered. Selected date range: {start_date, end_date}")
 
     chunksize_list, latest_ts_list, oldest_ts_list = (
         [],
@@ -1142,6 +1159,11 @@ def reload_page(n_clicks, n_intervals, start_date, end_date):
     # serve_app_layout() again) also sees the reloaded data, not just this
     # active session's DOM.
     PHLTS_PAGE_CONTAINER_CHILDREN = layout.children
+    now = datetime.now(ZoneInfo(args.timezone))
+    PHLTS_LAST_REFRESH_TIME = now
+    if ctx.triggered_id == "auto-refresh-interval":
+        PHLTS_LAST_AUTO_REFRESH_TIME = now
+        logging.info("Auto dashboard refresh done.")
 
     return layout.children
 
@@ -1150,10 +1172,9 @@ def reload_page(n_clicks, n_intervals, start_date, end_date):
     Output("filtered-view", "figure"),
     Input("client-filter", "value"),
     Input("reload-button", "n_clicks"),
-    Input("auto-refresh-interval", "n_intervals"),
     prevent_initial_call=True,
 )
-def update_filtered_view(client, n_click, n_intervals):
+def update_filtered_view(client, n_click):
     logging.info("Updating Queries over time plot...")
     global PHLTS_CALLBACK_DATA
 
@@ -1166,10 +1187,9 @@ def update_filtered_view(client, n_click, n_intervals):
     Output("client-activity-view", "figure"),
     Input("client-filter", "value"),
     Input("reload-button", "n_clicks"),
-    Input("auto-refresh-interval", "n_intervals"),
     prevent_initial_call=True,
 )
-def update_client_activity(client, n_clicks, n_intervals):
+def update_client_activity(client, n_clicks):
     logging.info("Updating Client activity over time plot...")
     global PHLTS_CALLBACK_DATA
 
@@ -1185,10 +1205,9 @@ def update_client_activity(client, n_clicks, n_intervals):
     Output("top-allowed-domains", "figure"),
     Input("client-filter", "value"),
     Input("reload-button", "n_clicks"),
-    Input("auto-refresh-interval", "n_intervals"),
     prevent_initial_call=True,
 )
-def update_top_domains(client, n_clicks, n_intervals):
+def update_top_domains(client, n_clicks):
     logging.info("Updating top blocked and allowed domain plots...")
     global PHLTS_CALLBACK_DATA
 
