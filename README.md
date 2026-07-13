@@ -252,8 +252,7 @@ You can configure the application using command-line arguments or environment va
 | `--n_clients`         | `PIHOLE_LT_STATS_NCLIENTS`       | `10`          | Number of top clients to show in top clients plots.            |
 | `--n_domains`         | `PIHOLE_LT_STATS_NDOMAINS`       | `10`          | Number of top clients to show in top clients plots.            |
 | `--port`         | `PIHOLE_LT_STATS_TIMEZONE`       | `UTC`          | Timezone for displaying times in the dashboard.            |
-| `--ignore_domains` | `PIHOLE_LT_STATS_IGNORE_DOMAINS` | `""` | Comma-separated regex patterns to exclude domains from from stats (e.g to exlcude all .local domains, use ".*\.local") |
-| `--refresh_interval` | `PIHOLE_LT_STATS_REFRESH_INTERVAL` | `0` | Automatically read the database again, re-compute stats and  refresh the dashboard after refresh_interval seconds has passed (Minimum allowed value: 3600).|
+| `--ignore-domains` | `PIHOLE_LT_STATS_IGNORE_DOMAINS` | `""` | Comma-separated regex patterns to exclude domains from from stats (e.g to exlcude all .local domains, use ".*\.local") |
 
 ## 🧑‍💻 Contributing
 
