@@ -1172,10 +1172,9 @@ def reload_page(n_clicks, n_intervals, start_date, end_date):
     Output("filtered-view", "figure"),
     Input("client-filter", "value"),
     Input("reload-button", "n_clicks"),
-    Input("auto-refresh-interval", "n_intervals"),
     prevent_initial_call=True,
 )
-def update_filtered_view(client, n_click, n_intervals):
+def update_filtered_view(client, n_click):
     logging.info("Updating Queries over time plot...")
     global PHLTS_CALLBACK_DATA
 
@@ -1188,10 +1187,9 @@ def update_filtered_view(client, n_click, n_intervals):
     Output("client-activity-view", "figure"),
     Input("client-filter", "value"),
     Input("reload-button", "n_clicks"),
-    Input("auto-refresh-interval", "n_intervals"),
     prevent_initial_call=True,
 )
-def update_client_activity(client, n_clicks, n_intervals):
+def update_client_activity(client, n_clicks):
     logging.info("Updating Client activity over time plot...")
     global PHLTS_CALLBACK_DATA
 
@@ -1207,10 +1205,9 @@ def update_client_activity(client, n_clicks, n_intervals):
     Output("top-allowed-domains", "figure"),
     Input("client-filter", "value"),
     Input("reload-button", "n_clicks"),
-    Input("auto-refresh-interval", "n_intervals"),
     prevent_initial_call=True,
 )
-def update_top_domains(client, n_clicks, n_intervals):
+def update_top_domains(client, n_clicks):
     logging.info("Updating top blocked and allowed domain plots...")
     global PHLTS_CALLBACK_DATA
 
