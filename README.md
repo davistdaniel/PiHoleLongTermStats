@@ -46,7 +46,7 @@ See more [screenshots](https://github.com/davistdaniel/PiHoleLongTermStats/blob/
 > Using your actual Pi-hole FTL db file for querying is **not** recommended and it is advised to use a copy. Place the copy in the project root or specify its path using the `--db_path` argument or `PIHOLE_LT_STATS_DB_PATH` environment variable. In any case, PiHoleLongTermStats does not monitor for changes in the Pi-hole FTL db file even if you mount it.
 
 > [!TIP]
-> * You can set up a cron job to periodically copy the FTL database to the `db_path` `PIHOLE_LT_STATS_DB_PATH` location, ensuring your stats are updated without touching the live database. Use the reload button in the dashboard to refresh the stats.
+> * You can set up a cron job to periodically copy the FTL database to the `db_path` `PIHOLE_LT_STATS_DB_PATH` location, ensuring your stats are updated without touching the actual database. Use the reload button in the dashboard to refresh the stats.
 > * Set your timezone (e.g "Europe/Berlin") using `--timezone` or `PIHOLE_LT_STATS_TIMEZONE`.
 
 > [!IMPORTANT]
@@ -78,7 +78,7 @@ If you have a copy of your `pihole-FTL.db` file, you can quickly run the dashboa
 
    ```bash
    # Example: Copy from the default Pi-hole location
-   sudo cp /etc/pihole/pihole-FTL.db . 
+   sudo sqlite3 /etc/pihole/pihole-FTL.db ".backup ./pihole-FTL.db" 
    # Ensure the user running the app has read permissions
    sudo chown $USER:$USER pihole-FTL.db
    ```
@@ -150,7 +150,7 @@ If installing using python, you can install from this git repo or as a package f
 
    ```bash
    # Example: Copy from the default Pi-hole location
-   sudo cp /etc/pihole/pihole-FTL.db . 
+   sudo sqlite3 /etc/pihole/pihole-FTL.db ".backup ./pihole-FTL.db"
    # Ensure the user running the app has read permissions
    sudo chown $USER:$USER pihole-FTL.db
    ```
@@ -205,7 +205,7 @@ If installing using python, you can install from this git repo or as a package f
 3. Make a copy/backup of your `pihole-FTL.db` (**Important!**) and place it in the PiHoleLongTermStats directory:
     ```bash
     # Example: Copy from the default Pi-hole location
-    sudo cp /etc/pihole/pihole-FTL.db . 
+    sudo sqlite3 /etc/pihole/pihole-FTL.db ".backup ./pihole-FTL.db"
     # Ensure the user running the app has read permissions
     sudo chown $USER:$USER pihole-FTL.db 
     ```
