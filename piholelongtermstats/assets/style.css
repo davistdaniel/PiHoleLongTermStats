@@ -146,7 +146,6 @@ h3 {
 }
 
 
-
 .cardactivity {
     background: linear-gradient(135deg, #ffffff, #f5f5f0);
     border-radius: 15px;
@@ -344,4 +343,22 @@ h3 {
 .date-picker-btn .dash-datepicker-caret-icon {
     fill: #f7f9fb !important;
     flex-shrink: 0;
+}
+
+.section-divider {
+    display: flex;
+    align-items: center;
+    margin: 20px 0;
+}
+
+.section-divider hr {
+    flex: 1;
+    border: none;
+    border-top: 1px solid #999;
+}
+
+.section-divider span {
+    padding: 0 10px;
+    font-weight: bold;
+    color: #444;
 }

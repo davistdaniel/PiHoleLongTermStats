@@ -29,7 +29,7 @@ from piholelongtermstats.plot import (
     generate_top_allowed_domains,
 )
 
-__version__ = "0.2.5"
+__version__ = "0.2.6"
 
 # logging setup
 logging.basicConfig(
@@ -262,6 +262,14 @@ def serve_layout(
                     ),
                 ],
                 className="sub-heading-card",
+            ),
+            html.Div(
+                [
+                    html.Hr(),
+                    html.Span("Info Cards"),
+                    html.Hr(),
+                ],
+                className="section-divider",
             ),
             # info cards
             html.Div(
@@ -713,32 +721,63 @@ def serve_layout(
                 ],
                 className="kpi-container",
             ),
+            html.Div(
+                [
+                    html.Hr(),
+                    html.Span("Queries and domains"),
+                    html.Hr(),
+                ],
+                className="section-divider",
+            ),
             html.Br(),
             html.Div(
                 [
-                    dcc.Dropdown(
-                        options=[
-                            {"label": c, "value": c} for c in plot_data["client_list"]
+                    html.Div(
+                        [
+                            dcc.Dropdown(
+                                options=[
+                                    {"label": c, "value": c}
+                                    for c in plot_data["client_list"]
+                                ],
+                                id="client-filter",
+                                placeholder="Select a Client",
+                            ),
                         ],
-                        id="client-filter",
-                        placeholder="Select a Client",
+                        className="cardplot",
                     ),
-                    html.H2("Queries over time"),
-                    html.H5("Queries from all clients. The data is aggregated hourly."),
-                    dcc.Graph(id="filtered-view", figure=initial_filtered_fig),
-                    html.H2("Client Activity Over Time"),
-                    html.H5(
-                        "Client acitivity for all clients. The data is aggregated hourly."
+                    html.Br(),
+                    html.Div(
+                        [
+                            html.H2("Queries over time"),
+                            html.H5(
+                                "Queries from all or selected clients. The data is aggregated hourly."
+                            ),
+                            dcc.Graph(id="filtered-view", figure=initial_filtered_fig),
+                        ],
+                        className="cardplot",
                     ),
-                    dcc.Graph(id="client-activity-view", figure=initial_activity_fig),
-                ],
-                className="cardplot",
+                    html.Br(),
+                    html.Div(
+                        [
+                            html.H2("Client Activity Over Time"),
+                            html.H5(
+                                "Client acitivity for all or selected clients. The data is aggregated hourly."
+                            ),
+                            dcc.Graph(
+                                id="client-activity-view", figure=initial_activity_fig
+                            ),
+                        ],
+                        className="cardplot",
+                    ),
+                ]
             ),
             html.Br(),
             html.Div(
                 [
                     html.H2("Top Blocked Domains"),
-                    html.H5(f"Top {args.n_domains} blocked domains."),
+                    html.H5(
+                        f"Top {args.n_domains} blocked domains. Client filter (see above) can be used to select a specific client."
+                    ),
                     dcc.Graph(
                         id="top-blocked-domains",
                         figure=px.bar(
@@ -764,10 +803,13 @@ def serve_layout(
                 ],
                 className="cardplot",
             ),
+            html.Br(),
             html.Div(
                 [
                     html.H2("Top Allowed Domains"),
-                    html.H5(f"Top {args.n_domains} allowed domains."),
+                    html.H5(
+                        f"Top {args.n_domains} allowed domains. Client filter (see above) can be used to select a specific client."
+                    ),
                     dcc.Graph(
                         id="top-allowed-domains",
                         figure=px.bar(
@@ -792,6 +834,15 @@ def serve_layout(
                     ),
                 ],
                 className="cardplot",
+            ),
+            html.Br(),
+            html.Div(
+                [
+                    html.Hr(),
+                    html.Span("Activity"),
+                    html.Hr(),
+                ],
+                className="section-divider",
             ),
             html.Br(),
             html.Div(
@@ -956,6 +1007,15 @@ def serve_layout(
             html.Br(),
             html.Div(
                 [
+                    html.Hr(),
+                    html.Span("Reply times"),
+                    html.Hr(),
+                ],
+                className="section-divider",
+            ),
+            html.Br(),
+            html.Div(
+                [
                     html.Div(
                         [
                             html.H2("Average Reply Time"),
@@ -973,6 +1033,34 @@ def serve_layout(
                                     markers=True,
                                     color_discrete_sequence=["#3b82f6"],
                                     template="plotly_white",
+                                ),
+                            ),
+                        ],
+                        className="cardplot",
+                    )
+                ]
+            ),
+            html.Br(),
+            html.Div(
+                [
+                    html.Div(
+                        [
+                            html.H2("Reply Time Distribution"),
+                            html.H5("Distribution of reply times in milliseconds."),
+                            dcc.Graph(
+                                id="reply-time-histogram",
+                                figure=px.histogram(
+                                    plot_data["reply_time_df"],
+                                    x="reply_time_ms",
+                                    labels={
+                                        "reply_time_ms": "Reply Time (ms)",
+                                    },
+                                    color_discrete_sequence=["#3b82f6"],
+                                    template="plotly_white",
+                                ).update_layout(
+                                    xaxis_title="Reply Time (ms)",
+                                    yaxis_title="Count",
+                                    bargap=0.05,
                                 ),
                             ),
                         ],
