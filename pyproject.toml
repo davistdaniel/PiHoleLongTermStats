@@ -50,3 +50,8 @@ exclude = ["docs*", "tests*","screenshots*","build*","dist*"]
 
 [tool.setuptools.package-data]
 piholelongtermstats = ["assets/*"]
+
+[dependency-groups]
+dev = [
+    "jupyter>=1.1.1",
+]
