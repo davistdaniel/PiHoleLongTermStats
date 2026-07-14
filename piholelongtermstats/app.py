@@ -207,7 +207,6 @@ def serve_layout(
     gc.collect()
 
     # generate initial plots
-
     initial_filtered_fig = generate_queries_over_time(
         callback_data=callback_data, client=None
     )
@@ -1042,10 +1041,7 @@ PHLTS_CALLBACK_DATA, initial_layout = serve_layout(
 
 logging.info("Setting initial layout...")
 
-# Holds the most recently generated page-container children. Updated by the
-# reload_page callback whenever new data is loaded. Because app.layout is a
-# function (see below), a full browser refresh re-reads this global instead
-# of the stale layout captured at container startup.
+# Holds the most recently generated page-container children
 PHLTS_PAGE_CONTAINER_CHILDREN = initial_layout.children
 
 
@@ -1130,8 +1126,7 @@ def reload_page(n_clicks, start_date, end_date):
     )
 
     # Persist the new layout so that a full browser refresh (which calls
-    # serve_app_layout() again) also sees the reloaded data, not just this
-    # active session's DOM.
+    # serve_app_layout() again) also sees the reloaded data
     PHLTS_PAGE_CONTAINER_CHILDREN = layout.children
 
     return layout.children
