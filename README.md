@@ -1,4 +1,4 @@
-# Pi Hole Long Term Statistics v.0.2.5
+# Pi Hole Long Term Statistics v.0.2.6
 
 <div align="center">
 
@@ -50,7 +50,9 @@ See more [screenshots](https://github.com/davistdaniel/PiHoleLongTermStats/blob/
 > * Set your timezone (e.g "Europe/Berlin") using `--timezone` or `PIHOLE_LT_STATS_TIMEZONE`.
 
 > [!IMPORTANT]
-> * PiHoleLongTermStats reloads the Pi-hole FTL database and recalculates stats whenever the dashboard is refreshed or the reload button is clicked.
+> * PiHoleLongTermStats reloads the Pi-hole FTL database and recalculates stats whenever the the reload button is clicked.
+> * Refreshing the page uing the browser's refresh button, will always serve cached dashboard and data.
+> * To update the dashboard with newer data from the database, you have to **manually** click the reload button (🔄) in the dashboard. Alternatively, you can restart the script or the docker container (using a cron job, for instance).
 > * If no date range is selected, it uses the default period set by `--days` or `PIHOLE_LT_STATS_DAYS`.
 > * Large date ranges may lead to increased memory usage.
 > * When multiple database files are provided, PiHoleLongTermStats concatenates them into a single dataframe and sorts the combined data by timestamp. Duplicate entries are **not** removed for calculating stats. Consolidating multiple databases can lead to increased memory usage.
