@@ -259,6 +259,7 @@ You can configure the application using command-line arguments or environment va
 ## 🧑‍💻 Contributing
 
 Any contribution, feature ideas or bug fixes are always welcome.
+In case of new features, opening an issue and discussion before implementation is recommended.
 This project uses uv for dependency management.
 
 ### Development workflow
