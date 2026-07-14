@@ -732,29 +732,52 @@ def serve_layout(
             html.Br(),
             html.Div(
                 [
-                    dcc.Dropdown(
-                        options=[
-                            {"label": c, "value": c} for c in plot_data["client_list"]
+                    html.Div(
+                        [
+                            dcc.Dropdown(
+                                options=[
+                                    {"label": c, "value": c}
+                                    for c in plot_data["client_list"]
+                                ],
+                                id="client-filter",
+                                placeholder="Select a Client",
+                            ),
                         ],
-                        id="client-filter",
-                        placeholder="Select a Client",
+                        className="cardplot",
                     ),
-                    html.H2("Queries over time"),
-                    html.H5("Queries from all clients. The data is aggregated hourly."),
-                    dcc.Graph(id="filtered-view", figure=initial_filtered_fig),
-                    html.H2("Client Activity Over Time"),
-                    html.H5(
-                        "Client acitivity for all clients. The data is aggregated hourly."
+                    html.Br(),
+                    html.Div(
+                        [
+                            html.H2("Queries over time"),
+                            html.H5(
+                                "Queries from all or selected clients. The data is aggregated hourly."
+                            ),
+                            dcc.Graph(id="filtered-view", figure=initial_filtered_fig),
+                        ],
+                        className="cardplot",
                     ),
-                    dcc.Graph(id="client-activity-view", figure=initial_activity_fig),
-                ],
-                className="cardplot",
+                    html.Br(),
+                    html.Div(
+                        [
+                            html.H2("Client Activity Over Time"),
+                            html.H5(
+                                "Client acitivity for all or selected clients. The data is aggregated hourly."
+                            ),
+                            dcc.Graph(
+                                id="client-activity-view", figure=initial_activity_fig
+                            ),
+                        ],
+                        className="cardplot",
+                    ),
+                ]
             ),
             html.Br(),
             html.Div(
                 [
                     html.H2("Top Blocked Domains"),
-                    html.H5(f"Top {args.n_domains} blocked domains."),
+                    html.H5(
+                        f"Top {args.n_domains} blocked domains. Client filter (see above) can be used to select a specific client."
+                    ),
                     dcc.Graph(
                         id="top-blocked-domains",
                         figure=px.bar(
@@ -780,10 +803,13 @@ def serve_layout(
                 ],
                 className="cardplot",
             ),
+            html.Br(),
             html.Div(
                 [
                     html.H2("Top Allowed Domains"),
-                    html.H5(f"Top {args.n_domains} allowed domains."),
+                    html.H5(
+                        f"Top {args.n_domains} allowed domains. Client filter (see above) can be used to select a specific client."
+                    ),
                     dcc.Graph(
                         id="top-allowed-domains",
                         figure=px.bar(
