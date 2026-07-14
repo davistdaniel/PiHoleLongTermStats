@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "piholelongtermstats"
-version = "0.2.5"
+version = "0.2.6"
 dependencies = [
     "dash==4.1.0",
     "pandas==3.0.3",
@@ -50,3 +50,8 @@ exclude = ["docs*", "tests*","screenshots*","build*","dist*"]
 
 [tool.setuptools.package-data]
 piholelongtermstats = ["assets/*"]
+
+[dependency-groups]
+dev = [
+    "jupyter>=1.1.1",
+]

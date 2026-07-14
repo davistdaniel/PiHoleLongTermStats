@@ -1,5 +1,5 @@
 ## Author :  Davis T. Daniel
-## PiHoleLongTermStats v.0.2.5
+## PiHoleLongTermStats v.0.2.6
 ## License :  MIT
 
 
@@ -12,6 +12,7 @@ import plotly.express as px
 import pandas as pd
 from dash import Dash, dcc, html, Input, Output, State
 from zoneinfo import ZoneInfo
+from datetime import datetime
 
 from piholelongtermstats.db import read_pihole_ftl_db, connect_to_sql, probe_sample_df
 from piholelongtermstats.process import (
@@ -172,6 +173,8 @@ def serve_layout(
                 f"Removed domains matching the regex pattern : {pattern}, number of rows in dataframe : {len(df)}"
             )
 
+    last_refresh_time = datetime.now(ZoneInfo(timezone)).strftime("%d-%m-%Y (%H:%M)")
+
     # should reduce some memory consumption
     df["id"] = df["id"].astype("int32")
     df["type"] = df["type"].astype("int8")
@@ -204,7 +207,6 @@ def serve_layout(
     gc.collect()
 
     # generate initial plots
-
     initial_filtered_fig = generate_queries_over_time(
         callback_data=callback_data, client=None
     )
@@ -256,7 +258,7 @@ def serve_layout(
                     ),
                     html.Br(),
                     html.H6(
-                        f"Timezone is {timezone}. Database records begin on {stats['oldest_data_point']} and end on {stats['latest_data_point']}."
+                        f"Timezone is {timezone}. Database records begin on {stats['oldest_data_point']} and end on {stats['latest_data_point']}. The dashboard was last reloaded on {last_refresh_time}."
                     ),
                 ],
                 className="sub-heading-card",
@@ -638,12 +640,12 @@ def serve_layout(
                                     html.H3("Longest Idle Period"),
                                     html.P(
                                         f"{stats['max_idle_ms']:,.0f} s"
-                                        if stats['max_idle_ms'] is not None
+                                        if stats["max_idle_ms"] is not None
                                         else "N/A"
                                     ),
                                     html.P(
                                         f"Between {stats['before_gap']} and {stats['after_gap']}"
-                                        if stats['before_gap'] and stats['after_gap']
+                                        if stats["before_gap"] and stats["after_gap"]
                                         else "N/A",
                                         style={"fontSize": "14px", "color": "#777"},
                                     ),
@@ -666,7 +668,7 @@ def serve_layout(
                                     ),
                                     html.P(
                                         f"Avg reply time: {stats['slowest_avg_reply_time'] * 1000:.2f} ms"
-                                        if stats['slowest_avg_reply_time']
+                                        if stats["slowest_avg_reply_time"]
                                         else "N/A",
                                         style={"fontSize": "14px", "color": "#777"},
                                     ),
@@ -1039,10 +1041,7 @@ PHLTS_CALLBACK_DATA, initial_layout = serve_layout(
 
 logging.info("Setting initial layout...")
 
-# Holds the most recently generated page-container children. Updated by the
-# reload_page callback whenever new data is loaded. Because app.layout is a
-# function (see below), a full browser refresh re-reads this global instead
-# of the stale layout captured at container startup.
+# Holds the most recently generated page-container children
 PHLTS_PAGE_CONTAINER_CHILDREN = initial_layout.children
 
 
@@ -1070,6 +1069,7 @@ def serve_app_layout():
             )
         ]
     )
+
 
 app.layout = serve_app_layout
 
@@ -1126,8 +1126,7 @@ def reload_page(n_clicks, start_date, end_date):
     )
 
     # Persist the new layout so that a full browser refresh (which calls
-    # serve_app_layout() again) also sees the reloaded data, not just this
-    # active session's DOM.
+    # serve_app_layout() again) also sees the reloaded data
     PHLTS_PAGE_CONTAINER_CHILDREN = layout.children
 
     return layout.children
