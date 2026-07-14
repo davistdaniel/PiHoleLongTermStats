@@ -6,6 +6,12 @@ on:
       - "piholelongtermstats/**"
       - "tests/**"
       - ".github/workflows/run-tests.yml"
+      
+  pull_request:
+    paths:
+      - "piholelongtermstats/**"
+      - "tests/**"
+      - ".github/workflows/run-tests.yml"
 
 jobs:
   test:
