@@ -29,7 +29,7 @@ from piholelongtermstats.plot import (
     generate_top_allowed_domains,
 )
 
-__version__ = "0.2.5"
+__version__ = "0.2.6"
 
 # logging setup
 logging.basicConfig(
@@ -262,6 +262,14 @@ def serve_layout(
                     ),
                 ],
                 className="sub-heading-card",
+            ),
+            html.Div(
+                [
+                    html.Hr(),
+                    html.Span("Info Cards"),
+                    html.Hr(),
+                ],
+                className="section-divider",
             ),
             # info cards
             html.Div(
@@ -713,6 +721,14 @@ def serve_layout(
                 ],
                 className="kpi-container",
             ),
+            html.Div(
+                [
+                    html.Hr(),
+                    html.Span("Queries and domains"),
+                    html.Hr(),
+                ],
+                className="section-divider",
+            ),
             html.Br(),
             html.Div(
                 [
@@ -792,6 +808,15 @@ def serve_layout(
                     ),
                 ],
                 className="cardplot",
+            ),
+            html.Br(),
+            html.Div(
+                [
+                    html.Hr(),
+                    html.Span("Activity"),
+                    html.Hr(),
+                ],
+                className="section-divider",
             ),
             html.Br(),
             html.Div(
@@ -956,6 +981,15 @@ def serve_layout(
             html.Br(),
             html.Div(
                 [
+                    html.Hr(),
+                    html.Span("Reply times"),
+                    html.Hr(),
+                ],
+                className="section-divider",
+            ),
+            html.Br(),
+            html.Div(
+                [
                     html.Div(
                         [
                             html.H2("Average Reply Time"),
@@ -973,6 +1007,34 @@ def serve_layout(
                                     markers=True,
                                     color_discrete_sequence=["#3b82f6"],
                                     template="plotly_white",
+                                ),
+                            ),
+                        ],
+                        className="cardplot",
+                    )
+                ]
+            ),
+            html.Br(),
+            html.Div(
+                [
+                    html.Div(
+                        [
+                            html.H2("Reply Time Distribution"),
+                            html.H5("Distribution of reply times in milliseconds."),
+                            dcc.Graph(
+                                id="reply-time-histogram",
+                                figure=px.histogram(
+                                    plot_data["reply_time_df"],
+                                    x="reply_time_ms",
+                                    labels={
+                                        "reply_time_ms": "Reply Time (ms)",
+                                    },
+                                    color_discrete_sequence=["#3b82f6"],
+                                    template="plotly_white",
+                                ).update_layout(
+                                    xaxis_title="Reply Time (ms)",
+                                    yaxis_title="Count",
+                                    bargap=0.05,
                                 ),
                             ),
                         ],
