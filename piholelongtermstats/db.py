@@ -107,6 +107,23 @@ def get_timestamp_range(days, start_date, end_date, timezone):
 
     return start_timestamp, end_timestamp
 
+def load_hostname_mapping(db_path):
+    """Load ip -> (name, nameUpdated) rows from network_addresses table."""
+    conn = connect_to_sql(db_path)
+    try:
+        query = """
+        SELECT ip, name, nameUpdated
+        FROM network_addresses
+        WHERE name IS NOT NULL AND name != ''
+        """
+        df = pd.read_sql_query(query, conn)
+        logging.info(f"Loaded {len(df)} hostname rows from {db_path}")
+    except Exception as e:
+        logging.warning(f"Could not load hostname mapping from {db_path}: {e}")
+        df = pd.DataFrame(columns=["ip", "name", "nameUpdated"])
+    finally:
+        conn.close()
+    return df
 
 def read_pihole_ftl_db(
     db_paths,

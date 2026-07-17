@@ -14,10 +14,10 @@ def _main_heading_stats(stats, df, min_date_available, max_date_available):
     stats["n_data_points"] = len(df)
     logging.info(f"Stats will be based on {stats['n_data_points']} data points.")
 
-    stats["oldest_data_point"] = f"{min_date_available.strftime('%-d-%-m-%Y (%H:%M)')}"
-    stats["latest_data_point"] = f"{max_date_available.strftime('%-d-%-m-%Y (%H:%M)')}"
-    stats["min_date"] = df["timestamp"].min().strftime("%-d-%-m-%Y (%H:%M)")
-    stats["max_date"] = df["timestamp"].max().strftime("%-d-%-m-%Y (%H:%M)")
+    stats["oldest_data_point"] = min_date_available.strftime("%d-%m-%Y (%H:%M)")
+    stats["latest_data_point"] = max_date_available.strftime("%d-%m-%Y (%H:%M)")
+    stats["min_date"] = df["timestamp"].min().strftime("%d-%m-%Y (%H:%M)")
+    stats["max_date"] = df["timestamp"].max().strftime("%d-%m-%Y (%H:%M)")
     logging.info(
         f"Stats will be computed for dates ranging from {stats['min_date']} to {stats['max_date']}"
     )
