@@ -396,19 +396,35 @@ def _idle_time_stats(stats, df_sorted):
     allowed_times = allowed["timestamp"].diff().dt.total_seconds().dropna()
     avg_time_between_allowed = allowed_times.mean() if not allowed_times.empty else None
 
-    if max_idle_idx is not None and max_idle_idx > 0:
-        before_gap = (
-            df_sorted.loc[max_idle_idx - 1, "timestamp"].strftime("%d-%b %Y %H:%M:%S.%f")[:-4]
-        )
+    if max_idle_idx is not None:
+        pos = df_sorted.index.get_loc(max_idle_idx)
+
+        if pos > 0:
+            before_gap_dt = df_sorted.iloc[pos - 1]["timestamp"]
+            before_gap = before_gap_dt.strftime("%d-%b %Y %H:%M:%S.%f")[:-4]
+        else:
+            before_gap = None
+
+        after_gap_dt = df_sorted.iloc[pos]["timestamp"]
+        after_gap = after_gap_dt.strftime("%d-%b %Y %H:%M:%S.%f")[:-4]
     else:
         before_gap = None
-    
-    if max_idle_idx is not None:
-        after_gap = df_sorted.loc[max_idle_idx, "timestamp"].strftime(
-            "%d-%b %Y %H:%M:%S.%f"
-        )[:-4]
-    else:
         after_gap = None
+
+
+    # if max_idle_idx is not None and max_idle_idx > 0:
+    #     before_gap = (
+    #         df_sorted.loc[max_idle_idx - 1, "timestamp"].strftime("%d-%b %Y %H:%M:%S.%f")[:-4]
+    #     )
+    # else:
+    #     before_gap = None
+    
+    # if max_idle_idx is not None:
+    #     after_gap = df_sorted.loc[max_idle_idx, "timestamp"].strftime(
+    #         "%d-%b %Y %H:%M:%S.%f"
+    #     )[:-4]
+    # else:
+    #     after_gap = None
 
     stats["max_idle_s"] = max_idle_s
     stats["avg_time_between_blocked"] = avg_time_between_blocked
@@ -417,9 +433,6 @@ def _idle_time_stats(stats, df_sorted):
     stats["after_gap"] = after_gap
 
     logging.info("Computed data for time stats.")
-
-    del allowed, blocked
-    gc.collect()
 
     return stats
 
