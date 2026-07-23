@@ -289,10 +289,6 @@ This project uses uv for dependency management.
 * Make your changes.
 * Submit a pull request.
 
-## Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=davistdaniel/PiHoleLongTermStats&type=date&legend=top-left)](https://www.star-history.com/#davistdaniel/PiHoleLongTermStats&type=date&legend=top-left)
-
 ## Supported metrics
 | Metric | Description |
 |--------|-------------|
