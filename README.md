@@ -86,34 +86,38 @@ If you have a copy of your `pihole-FTL.db` file, you can quickly run the dashboa
     
     ```docker
     services:
-      pihole-long-term-stats:
+    pihole-long-term-stats:
         image: ghcr.io/davistdaniel/piholelongtermstats:latest
         container_name: pihole-lt-stats
         ports:
-          - "9292:9292"  # Map host port to container port
+        - "9292:9292"  # Map host port to container port
         volumes:
-          - ./pihole-FTL.db:/app/pihole-FTL.db:ro  # Path to your Pi-hole DB file (adjust if it's not in current directory)
-          # To include additional Pi-hole databases, mount each one similarly:
-          #- ./pihole-FTL-2.db:/app/pihole-FTL-2.db:ro
+        - ./pihole-FTL.db:/app/pihole-FTL.db:ro  # Path to your Pi-hole DB file (adjust if it's not in current directory)
+        # To include additional Pi-hole databases, mount each one similarly, then also specify in environment :
+        #- ./pihole-FTL-2.db:/app/pihole-FTL-2.db:ro
         environment:
-          - PIHOLE_LT_STATS_DB_PATH=/app/pihole-FTL.db  # Path inside the container to the mounted DB file
-          
-          # Provide multiple databases by listing their container paths as a
-          # comma-separated string, e.g.:
-          #- PIHOLE_LT_STATS_DB_PATH=/app/pihole-FTL.db,/app/pihole-FTL-2.db
 
-          - PIHOLE_LT_STATS_DAYS=31                     # Number of days from now of data to analyze; change if desired
-          - PIHOLE_LT_STATS_PORT=9292                   # Port the app listens to inside container; keep in sync with ports mapping
-          - PIHOLE_LT_STATS_NCLIENTS=10                 # Number of clients to show in top clients plots
-          - PIHOLE_LT_STATS_NDOMAINS=10                 # Number of domains to show in top domains plots
-          - PIHOLE_LT_STATS_TIMEZONE=UTC                # timezone for display
-          #- PIHOLE_LT_STATS_IGNORE_DOMAINS=.*\.local   # regex patterns for excluding domains. Example: to exclude all .local domains use .*\.local
-          
-          # To ignore multiple domain patterns, separate each regex with a comma.
-          # example definition below ignores: anything ending in .local, anything starting with ads, exactly example.com
-          #- PIHOLE_LT_STATS_IGNORE_DOMAINS=.*\.local,^ads\.,^example\.com$
+        # Configuration guide can be found on the github repository.
+
+        - PIHOLE_LT_STATS_DB_PATH=/app/pihole-FTL.db  # Path inside the container to the mounted DB file
+        - PIHOLE_LT_STATS_DAYS=31                     # Number of days from now of data to analyze; change if desired
+        - PIHOLE_LT_STATS_PORT=9292                   # Port the app listens to inside container; keep in sync with ports mapping
+        - PIHOLE_LT_STATS_NCLIENTS=10                 # Number of clients to show in top clients plots
+        - PIHOLE_LT_STATS_NDOMAINS=10                 # Number of domains to show in top domains plots
+        - PIHOLE_LT_STATS_TIMEZONE=UTC                # timezone for display
+        - PIHOLE_LT_STATS_CLIENT_ID=hostname          # Client grouping and display criterion
+        #- PIHOLE_LT_STATS_IGNORE_DOMAINS=.*\.local   # regex patterns for excluding domains. Example: to exclude all .local domains use .*\.local 
+
+        # Provide multiple databases by listing their container paths as a
+        # comma-separated string, e.g.:
+        #- PIHOLE_LT_STATS_DB_PATH=/app/pihole-FTL.db,/app/pihole-FTL-2.db
+
+        # To ignore multiple domain patterns, separate each regex with a comma.
+        # example definition below ignores: anything ending in .local, anything starting with ads, exactly example.com
+        #- PIHOLE_LT_STATS_IGNORE_DOMAINS=.*\.local,^ads\.,^example\.com$
 
         restart: unless-stopped
+
     ```
     and run using :
 
@@ -244,7 +248,7 @@ If installing using python, you can install from this git repo or as a package f
 
 ## ⚙️ Configuration
 
-You can configure the application using command-line arguments or environment variables:
+You can configure the application using command-line arguments or environment variables. For a detailed reference on all settings and configurations, see the [Configuration Guide](docs/configuration_guide.md).
 
 | Command-Line Argument | Environment Variable         | Default Value   | Description                                      |
 |-----------------------|------------------------------|-----------------|--------------------------------------------------|
@@ -252,13 +256,15 @@ You can configure the application using command-line arguments or environment va
 | `--days`         | `PIHOLE_LT_STATS_DAYS`       | `31`           | Number of days back from today to analyze.          |
 | `--port`         | `PIHOLE_LT_STATS_PORT`       | `9292`          | Port number to serve the Dash app on.            |
 | `--n_clients`         | `PIHOLE_LT_STATS_NCLIENTS`       | `10`          | Number of top clients to show in top clients plots.            |
-| `--n_domains`         | `PIHOLE_LT_STATS_NDOMAINS`       | `10`          | Number of top clients to show in top clients plots.            |
-| `--port`         | `PIHOLE_LT_STATS_TIMEZONE`       | `UTC`          | Timezone for displaying times in the dashboard.            |
-| `--ignore-domains` | `PIHOLE_LT_STATS_IGNORE_DOMAINS` | `""` | Comma-separated regex patterns to exclude domains from from stats (e.g to exlcude all .local domains, use ".*\.local") |
+| `--n_domains`         | `PIHOLE_LT_STATS_NDOMAINS`       | `10`          | Number of top domains to show in top domains plots.            |
+| `--timezone`         | `PIHOLE_LT_STATS_TIMEZONE`       | `UTC`          | Timezone for displaying times in the dashboard.            |
+| `--ignore-domains` | `PIHOLE_LT_STATS_IGNORE_DOMAINS` | `""` | Comma-separated regex patterns to exclude domains from stats (e.g. to exclude all `.local` domains, use `.*\.local`). |
+| `--client_id`      | `PIHOLE_LT_STATS_CLIENT_ID`      | `hostname`      | Client grouping criterion (e.g., `hostname`, `mac`, `ip`, `hostname_mac`, `hostname_ip`, `mac_ip`). |
+
 
 ## 🧑‍💻 Contributing
 
-Any contribution, feature ideas or bug fixes are always welcome.
+Any contribution, feature ideas, documentation improvements or bug fixes are always welcome.
 In case of new features, opening an issue and discussion before implementation is recommended.
 This project uses uv for dependency management.
 
