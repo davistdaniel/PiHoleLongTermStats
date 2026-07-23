@@ -1,5 +1,5 @@
 ## Author :  Davis T. Daniel
-## PiHoleLongTermStats v.0.2.6
+## PiHoleLongTermStats v.0.2.7
 ## License :  MIT
 
 import logging
@@ -83,15 +83,6 @@ def _domain_stats(stats, df):
 
     stats["top_allowed_domain_count"] = int(allowed_domains.max()) if not allowed_domains.empty else 0
     stats["top_blocked_domain_count"] = int(blocked_domains.max()) if not blocked_domains.empty else 0
-    
-    # stats["top_allowed_domain_count"] = (
-    #     len(df[df["domain"] == stats["top_allowed_domain"]]) 
-    #     if stats["top_allowed_domain"] != "N/A" else 0
-    # )
-    # stats["top_blocked_domain_count"] = (
-    #     len(df[df["domain"] == stats["top_blocked_domain"]]) 
-    #     if stats["top_blocked_domain"] != "N/A" else 0
-    # )
     
     allowed_domain_clients = (
         df[
@@ -239,15 +230,6 @@ def _day_night_stats(stats, df):
     stats["day_top_allowed_domain_count"] = int(day_allowed_domains.max()) if not day_allowed_domains.empty else 0
     stats["day_top_blocked_domain_count"] = int(day_blocked_domains.max()) if not day_blocked_domains.empty else 0
     
-    # stats["day_top_allowed_domain_count"] = (
-    #     len(day_df[day_df["domain"] == stats["day_top_allowed_domain"]])
-    #     if stats["day_top_allowed_domain"] != "N/A" else 0
-    # )
-    # stats["day_top_blocked_domain_count"] = (
-    #     len(day_df[day_df["domain"] == stats["day_top_blocked_domain"]])
-    #     if stats["day_top_blocked_domain"] != "N/A" else 0
-    # )
-    
     day_allowed_domain_clients = (
         day_df[
             (day_df["status_type"] == "Allowed")
@@ -290,15 +272,6 @@ def _day_night_stats(stats, df):
 
     stats["night_top_allowed_domain_count"] = int(night_allowed_domains.max()) if not night_allowed_domains.empty else 0
     stats["night_top_blocked_domain_count"] = int(night_blocked_domains.max()) if not night_blocked_domains.empty else 0
-    
-    # stats["night_top_allowed_domain_count"] = (
-    #     len(night_df[night_df["domain"] == stats["night_top_allowed_domain"]])
-    #     if stats["night_top_allowed_domain"] != "N/A" else 0
-    # )
-    # stats["night_top_blocked_domain_count"] = (
-    #     len(night_df[night_df["domain"] == stats["night_top_blocked_domain"]])
-    #     if stats["night_top_blocked_domain"] != "N/A" else 0
-    # )
     
     night_allowed_domain_clients = (
         night_df[
@@ -410,21 +383,6 @@ def _idle_time_stats(stats, df_sorted):
     else:
         before_gap = None
         after_gap = None
-
-
-    # if max_idle_idx is not None and max_idle_idx > 0:
-    #     before_gap = (
-    #         df_sorted.loc[max_idle_idx - 1, "timestamp"].strftime("%d-%b %Y %H:%M:%S.%f")[:-4]
-    #     )
-    # else:
-    #     before_gap = None
-    
-    # if max_idle_idx is not None:
-    #     after_gap = df_sorted.loc[max_idle_idx, "timestamp"].strftime(
-    #         "%d-%b %Y %H:%M:%S.%f"
-    #     )[:-4]
-    # else:
-    #     after_gap = None
 
     stats["max_idle_s"] = max_idle_s
     stats["avg_time_between_blocked"] = avg_time_between_blocked
