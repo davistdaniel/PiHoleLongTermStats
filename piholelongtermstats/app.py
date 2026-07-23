@@ -1063,7 +1063,7 @@ def serve_layout(
                     html.Div(
                         [
                             html.H2("Reply Time Distribution"),
-                            html.H5("Distribution of reply times in milliseconds."),
+                            html.H5("Distribution of daily average reply times in milliseconds."),
                             dcc.Graph(
                                 id="reply-time-histogram",
                                 figure=px.histogram(
