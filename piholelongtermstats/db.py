@@ -1,5 +1,5 @@
 ## Author :  Davis T. Daniel
-## PiHoleLongTermStats v.0.2.6
+## PiHoleLongTermStats v.0.2.7
 ## License :  MIT
 
 import sqlite3
@@ -151,8 +151,8 @@ def resolve_clients(df, hostname_map, mac_map, client_id="hostname"):
     """
 
     df["client_ip"] = df["client"]
-    df["client_mac"] = df["client_ip"].map(mac_map)
-    hostname = df["client_ip"].map(hostname_map)
+    df["client_mac"] = df["client_ip"].map(mac_map).astype(object)
+    hostname = df["client_ip"].map(hostname_map).astype(object)
 
     if client_id == "ip":
         resolved = df["client_ip"]
