@@ -127,7 +127,7 @@ Deafult is `hostname`. Determines how client endpoints are identified, grouped, 
 
 - For accuracy in stats, it is best to use `mac` but for readability, this is not optimal. 
 - A better balance of accuracy and readability is using `hostname`. 
-- Using `ip` may lead to inaccurate stats, since devices may not have static IP adresses. -
+- Using `ip` may lead to inaccurate stats, since devices may not have static IP adresses.
 - `ip` is used as fallback if hostnames or mac aren't available.
 - Long hostnames could lead to plot labels taking up extra vertical space, overlapping, or getting truncated on the dashboard charts.
 
