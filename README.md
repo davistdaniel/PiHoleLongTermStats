@@ -47,27 +47,30 @@ See more [screenshots](https://github.com/davistdaniel/PiHoleLongTermStats/blob/
 > Using your actual Pi-hole FTL db file for querying is **not** recommended and it is advised to use a copy. Place the copy in the project root or specify its path using the `--db_path` argument or `PIHOLE_LT_STATS_DB_PATH` environment variable. In any case, PiHoleLongTermStats does not monitor for changes in the Pi-hole FTL db file even if you mount it.
 
 > [!TIP]
-> * You can set up a cron job to periodically copy the FTL database to the `db_path` `PIHOLE_LT_STATS_DB_PATH` location, ensuring your stats are updated without touching the actual database. Use the reload button in the dashboard to refresh the stats.
-> * Set your timezone (e.g "Europe/Berlin") using `--timezone` or `PIHOLE_LT_STATS_TIMEZONE`.
-
-> [!IMPORTANT]
-> * PiHoleLongTermStats reloads the Pi-hole FTL database and recalculates stats whenever the the reload button is clicked.
-> * Refreshing the page uing the browser's refresh button, will always serve cached dashboard and data.
-> * To update the dashboard with newer data from the database, you have to **manually** click the reload button (🔄) in the dashboard. Alternatively, you can restart the script or the docker container (using a cron job, for instance).
-> * If no date range is selected, it uses the default period set by `--days` or `PIHOLE_LT_STATS_DAYS`.
-> * Large date ranges may lead to increased memory usage.
-> * When multiple database files are provided, PiHoleLongTermStats concatenates them into a single dataframe and sorts the combined data by timestamp. Duplicate entries are **not** removed for calculating stats. Consolidating multiple databases can lead to increased memory usage.
-
-> [!TIP]
 > There are multiple ways to run the dashboard: using Python or Docker.
 
-### 🐳 Using Docker
+<details>
+<summary>Some more tips and notes. Click to expand.</summary>
+
+  * You can set up a cron job to periodically copy the FTL database to the `db_path` `PIHOLE_LT_STATS_DB_PATH` location. Use the reload button in the dashboard to refresh the stats.
+  * Set your timezone (e.g "Europe/Berlin") using `--timezone` or `PIHOLE_LT_STATS_TIMEZONE`.
+  * PiHoleLongTermStats reloads the Pi-hole FTL database and recalculates stats whenever the the reload button is clicked.
+  * Refreshing the page uing the browser's refresh button, will always serve cached dashboard and data.
+  * To update the dashboard with newer data from the database, you have to **manually** click the reload button (🔄) in the dashboard. Alternatively, you can restart the script or the docker container (using a cron job, for instance).
+  * If no date range is selected during refresh, it uses the default period set by `--days` or `PIHOLE_LT_STATS_DAYS`. Large date ranges may lead to increased memory usage.
+  * When multiple database files are provided, PiHoleLongTermStats concatenates them into a single dataframe and sorts the combined data by timestamp. Duplicate entries are **not** removed for calculating stats. Consolidating multiple databases can lead to increased memory usage.
+
+</details>
+
+## Installation
+
+### Using Docker
 
 <details>
 <summary>Click to expand.</summary>
 
-
-If you have a copy of your `pihole-FTL.db` file, you can quickly run the dashboard using Docker Compose.
+An example of docker compose file can be found [here](https://github.com/davistdaniel/PiHoleLongTermStats/blob/main/docker-compose.yml). 
+See details about configurations options [here](https://github.com/davistdaniel/PiHoleLongTermStats/blob/main/docs/configuration_guide.md).
 
 1. Make a directory for PiHoleLongtermStats:
     ```bash
@@ -129,7 +132,7 @@ If you have a copy of your `pihole-FTL.db` file, you can quickly run the dashboa
 </details>
 
 
-### 🐍 Using Python
+### Using Python
 
 If installing using python, you can install from this git repo or as a package from PyPi.
 
@@ -247,9 +250,17 @@ If installing using python, you can install from this git repo or as a package f
     </details>
 </details>
 
+### Using `uvx`:
+
+For this to work, `uv` must be installed. If you only want to run the dashboard once or rarely:
+
+```bash
+uvx piholelongtermstats --db_path "pihole-FTL.db" --days 91
+```
+
 ## ⚙️ Configuration
 
-You can configure the application using command-line arguments or environment variables. For a detailed reference on all settings and configurations, see the [Configuration Guide](docs/configuration_guide.md).
+You can configure the app using command-line arguments or environment variables. For a detailed reference on all settings and configurations, see the [Configuration Guide](https://github.com/davistdaniel/PiHoleLongTermStats/blob/main/docs/configuration_guide.md).
 
 | Command-Line Argument | Environment Variable         | Default Value   | Description                                      |
 |-----------------------|------------------------------|-----------------|--------------------------------------------------|
