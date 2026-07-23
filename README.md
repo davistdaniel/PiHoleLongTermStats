@@ -6,6 +6,7 @@
 ![GitHub last commit](https://img.shields.io/github/last-commit/davistdaniel/piholelongtermstats)
 ![GitHub License](https://img.shields.io/github/license/davistdaniel/piholelongtermstats)
 ![phlts_tests](https://img.shields.io/github/actions/workflow/status/davistdaniel/piholelongtermstats/run-tests.yml?label=tests)
+[![PyPI Downloads](https://static.pepy.tech/personalized-badge/piholelongtermstats?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/piholelongtermstats)
 
 
 
