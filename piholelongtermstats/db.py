@@ -9,7 +9,6 @@ import psutil
 import pandas as pd
 import logging
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
-import gc
 
 
 ####### reading the database #######
@@ -59,9 +58,6 @@ def probe_sample_df(conn):
         "ts"
     ].iloc[0]
     oldest_ts = pd.to_datetime(oldest_ts_raw, unit="s", utc=True)
-
-    del sample_df
-    gc.collect()
 
     return chunksize, latest_ts, oldest_ts
 

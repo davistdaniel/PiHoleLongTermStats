@@ -88,8 +88,11 @@ class TestProbeSampleDf:
     def test_probe_sample_df_empty_database(self, dummy_db_empty):
         """Test probe_sample_df with empty database."""
         conn = connect_to_sql(dummy_db_empty)
-        with pytest.raises(ValueError):
-            chunksize, latest_ts, oldest_ts = probe_sample_df(conn)
+        try:
+            with pytest.raises(ValueError):
+                probe_sample_df(conn)
+        finally:
+            conn.close()
 
 class TestGetTimestampRange:
     """Tests for get_timestamp_range function."""
