@@ -1,5 +1,5 @@
 ## Author :  Davis T. Daniel
-## PiHoleLongTermStats v.0.2.6
+## PiHoleLongTermStats v.0.2.7
 ## License :  MIT
 
 import re
@@ -61,7 +61,9 @@ def preprocess_df(df, timezone="UTC"):
     df["timestamp"] = df["timestamp"].dt.tz_convert(timezone)
     df["date"] = df["timestamp"].dt.normalize()  # needed in group by operations
     df["hour"] = df["timestamp"].dt.hour
-    df["day_period"] = df["hour"].apply(lambda h: "Day" if 6 <= h < 24 else "Night")
+    df["day_period"] = "Night"
+    df.loc[(df["hour"] >= 6) & (df["hour"] <   24), "day_period"] = "Day"
+    #df["day_period"] = df["hour"].apply(lambda h: "Day" if 6 <= h < 24 else "Night")
     logging.info(
         f"Set timestamp, date, hour and day_period columns using timezone : {timezone}"
     )

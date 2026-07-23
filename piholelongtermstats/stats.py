@@ -1,5 +1,5 @@
 ## Author :  Davis T. Daniel
-## PiHoleLongTermStats v.0.2.6
+## PiHoleLongTermStats v.0.2.7
 ## License :  MIT
 
 import logging
@@ -14,10 +14,10 @@ def _main_heading_stats(stats, df, min_date_available, max_date_available):
     stats["n_data_points"] = len(df)
     logging.info(f"Stats will be based on {stats['n_data_points']} data points.")
 
-    stats["oldest_data_point"] = f"{min_date_available.strftime('%-d-%-m-%Y (%H:%M)')}"
-    stats["latest_data_point"] = f"{max_date_available.strftime('%-d-%-m-%Y (%H:%M)')}"
-    stats["min_date"] = df["timestamp"].min().strftime("%-d-%-m-%Y (%H:%M)")
-    stats["max_date"] = df["timestamp"].max().strftime("%-d-%-m-%Y (%H:%M)")
+    stats["oldest_data_point"] = min_date_available.strftime("%d-%m-%Y (%H:%M)")
+    stats["latest_data_point"] = max_date_available.strftime("%d-%m-%Y (%H:%M)")
+    stats["min_date"] = df["timestamp"].min().strftime("%d-%m-%Y (%H:%M)")
+    stats["max_date"] = df["timestamp"].max().strftime("%d-%m-%Y (%H:%M)")
     logging.info(
         f"Stats will be computed for dates ranging from {stats['min_date']} to {stats['max_date']}"
     )
@@ -80,15 +80,9 @@ def _domain_stats(stats, df):
     
     stats["top_allowed_domain"] = allowed_domains.idxmax() if not allowed_domains.empty else "N/A"
     stats["top_blocked_domain"] = blocked_domains.idxmax() if not blocked_domains.empty else "N/A"
-    
-    stats["top_allowed_domain_count"] = (
-        len(df[df["domain"] == stats["top_allowed_domain"]]) 
-        if stats["top_allowed_domain"] != "N/A" else 0
-    )
-    stats["top_blocked_domain_count"] = (
-        len(df[df["domain"] == stats["top_blocked_domain"]]) 
-        if stats["top_blocked_domain"] != "N/A" else 0
-    )
+
+    stats["top_allowed_domain_count"] = int(allowed_domains.max()) if not allowed_domains.empty else 0
+    stats["top_blocked_domain_count"] = int(blocked_domains.max()) if not blocked_domains.empty else 0
     
     allowed_domain_clients = (
         df[
@@ -232,15 +226,9 @@ def _day_night_stats(stats, df):
     
     day_blocked_domains = day_df[day_df["status_type"] == "Blocked"]["domain"].value_counts()
     stats["day_top_blocked_domain"] = day_blocked_domains.idxmax() if not day_blocked_domains.empty else "N/A"
-    
-    stats["day_top_allowed_domain_count"] = (
-        len(day_df[day_df["domain"] == stats["day_top_allowed_domain"]])
-        if stats["day_top_allowed_domain"] != "N/A" else 0
-    )
-    stats["day_top_blocked_domain_count"] = (
-        len(day_df[day_df["domain"] == stats["day_top_blocked_domain"]])
-        if stats["day_top_blocked_domain"] != "N/A" else 0
-    )
+
+    stats["day_top_allowed_domain_count"] = int(day_allowed_domains.max()) if not day_allowed_domains.empty else 0
+    stats["day_top_blocked_domain_count"] = int(day_blocked_domains.max()) if not day_blocked_domains.empty else 0
     
     day_allowed_domain_clients = (
         day_df[
@@ -281,15 +269,9 @@ def _day_night_stats(stats, df):
     
     night_blocked_domains = night_df[night_df["status_type"] == "Blocked"]["domain"].value_counts()
     stats["night_top_blocked_domain"] = night_blocked_domains.idxmax() if not night_blocked_domains.empty else "N/A"
-    
-    stats["night_top_allowed_domain_count"] = (
-        len(night_df[night_df["domain"] == stats["night_top_allowed_domain"]])
-        if stats["night_top_allowed_domain"] != "N/A" else 0
-    )
-    stats["night_top_blocked_domain_count"] = (
-        len(night_df[night_df["domain"] == stats["night_top_blocked_domain"]])
-        if stats["night_top_blocked_domain"] != "N/A" else 0
-    )
+
+    stats["night_top_allowed_domain_count"] = int(night_allowed_domains.max()) if not night_allowed_domains.empty else 0
+    stats["night_top_blocked_domain_count"] = int(night_blocked_domains.max()) if not night_blocked_domains.empty else 0
     
     night_allowed_domain_clients = (
         night_df[
@@ -373,10 +355,10 @@ def _idle_time_stats(stats, df_sorted):
     idle_gaps = df_sorted["idle_gap"].dropna()
     
     if not idle_gaps.empty:
-        max_idle_ms = idle_gaps.max()
+        max_idle_s = idle_gaps.max() # idle_gaps comes from dt.total_seconds
         max_idle_idx = idle_gaps.idxmax()
     else:
-        max_idle_ms = None
+        max_idle_s = None
         max_idle_idx = None
 
     blocked = df_sorted[df_sorted["status_type"] == "Blocked"]
@@ -387,30 +369,28 @@ def _idle_time_stats(stats, df_sorted):
     allowed_times = allowed["timestamp"].diff().dt.total_seconds().dropna()
     avg_time_between_allowed = allowed_times.mean() if not allowed_times.empty else None
 
-    if max_idle_idx is not None and max_idle_idx > 0:
-        before_gap = (
-            df_sorted.loc[max_idle_idx - 1, "timestamp"].strftime("%d-%b %Y %H:%M:%S.%f")[:-4]
-        )
+    if max_idle_idx is not None:
+        pos = df_sorted.index.get_loc(max_idle_idx)
+
+        if pos > 0:
+            before_gap_dt = df_sorted.iloc[pos - 1]["timestamp"]
+            before_gap = before_gap_dt.strftime("%d-%b %Y %H:%M:%S.%f")[:-4]
+        else:
+            before_gap = None
+
+        after_gap_dt = df_sorted.iloc[pos]["timestamp"]
+        after_gap = after_gap_dt.strftime("%d-%b %Y %H:%M:%S.%f")[:-4]
     else:
         before_gap = None
-    
-    if max_idle_idx is not None:
-        after_gap = df_sorted.loc[max_idle_idx, "timestamp"].strftime(
-            "%d-%b %Y %H:%M:%S.%f"
-        )[:-4]
-    else:
         after_gap = None
 
-    stats["max_idle_ms"] = max_idle_ms
+    stats["max_idle_s"] = max_idle_s
     stats["avg_time_between_blocked"] = avg_time_between_blocked
     stats["avg_time_between_allowed"] = avg_time_between_allowed
     stats["before_gap"] = before_gap
     stats["after_gap"] = after_gap
 
     logging.info("Computed data for time stats.")
-
-    del allowed, blocked
-    gc.collect()
 
     return stats
 

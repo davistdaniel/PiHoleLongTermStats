@@ -243,14 +243,14 @@ class TestComputeStats:
         stats = compute_stats(stats_dataframe, min_date, max_date)
         
         # Check idle time stats exist
-        assert "max_idle_ms" in stats
+        assert "max_idle_s" in stats
         assert "avg_time_between_blocked" in stats
         assert "avg_time_between_allowed" in stats
         assert "before_gap" in stats
         assert "after_gap" in stats
         
         # Check max_idle_ms is positive
-        assert stats["max_idle_ms"] >= 0
+        assert stats["max_idle_s"] >= 0
 
     def test_compute_stats_unique_stats(self, stats_dataframe):
         """Test unique stats."""

@@ -159,6 +159,39 @@ def dummy_db_date_range(temp_dir):
     yield str(db_path), df
 
 
+@pytest.fixture(scope="session")
+def dummy_db_with_network(temp_dir):
+    """Create a test database with queries and network tables populated."""
+    df = create_dummy_dataframe(seed=1, n_rows=100)
+    db_path = Path(temp_dir) / "test_ftl_network.db"
+    
+    conn = sqlite3.connect(str(db_path))
+    df.to_sql("queries", conn, index=False, if_exists="replace")
+    
+    network_data = pd.DataFrame({
+        "id": [1, 2],
+        "hwaddr": ["aa:bb:cc:dd:ee:11", "aa:bb:cc:dd:ee:22"],
+        "macVendor": ["Vendor1", "Vendor2"]
+    })
+    network_data.to_sql("network", conn, index=False, if_exists="replace")
+    
+    unique_clients = df["client"].unique()
+    ip1 = unique_clients[0] if len(unique_clients) > 0 else "192.168.1.2"
+    ip2 = unique_clients[1] if len(unique_clients) > 1 else "192.168.1.3"
+    
+    network_addresses_data = pd.DataFrame({
+        "network_id": [1, 2],
+        "ip": [ip1, ip2],
+        "name": ["client-one.local", "client-two.local"],
+        "lastSeen": [1700000000, 1700000100]
+    })
+    network_addresses_data.to_sql("network_addresses", conn, index=False, if_exists="replace")
+    
+    conn.close()
+    yield str(db_path), df, {ip1: "client-one.local", ip2: "client-two.local"}, {ip1: "aa:bb:cc:dd:ee:11", ip2: "aa:bb:cc:dd:ee:22"}
+
+
+
 @pytest.fixture
 def sample_dataframe():
     """Create a small sample DataFrame for quick tests."""

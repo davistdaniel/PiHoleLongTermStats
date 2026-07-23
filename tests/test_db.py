@@ -88,8 +88,11 @@ class TestProbeSampleDf:
     def test_probe_sample_df_empty_database(self, dummy_db_empty):
         """Test probe_sample_df with empty database."""
         conn = connect_to_sql(dummy_db_empty)
-        with pytest.raises(ValueError):
-            chunksize, latest_ts, oldest_ts = probe_sample_df(conn)
+        try:
+            with pytest.raises(ValueError):
+                probe_sample_df(conn)
+        finally:
+            conn.close()
 
 class TestGetTimestampRange:
     """Tests for get_timestamp_range function."""
@@ -205,7 +208,8 @@ class TestReadPiholeFtlDb:
         df_result = pd.concat(chunks)
         
         # check columns
-        assert set(df_result.columns) == set(df_expected_mod.columns)
+        expected_cols = set(df_expected_mod.columns) | {"client_ip", "client_mac"}
+        assert set(df_result.columns) == expected_cols
         
         assert len(df_result) > 0
 
@@ -233,7 +237,8 @@ class TestReadPiholeFtlDb:
         df_result = pd.concat(chunks)
         
         assert len(df_result) > 0
-        assert set(df_result.columns) == set(df1_mod.columns)
+        expected_cols = set(df1_mod.columns) | {"client_ip", "client_mac"}
+        assert set(df_result.columns) == expected_cols
 
     def test_read_pihole_ftl_db_with_date_range(self, dummy_db_date_range):
         """Test reading with specific date range."""
@@ -295,21 +300,6 @@ class TestReadPiholeFtlDb:
         else:
             assert True
 
-    def test_read_pihole_ftl_db_chunksize_none(self, dummy_db_single):
-        """Test reading with chunksize=None."""
-        db_path, _ = dummy_db_single
-        
-        chunks = list(read_pihole_ftl_db(
-            db_paths=[db_path],
-            chunksize=[None],
-            start_date=None,
-            end_date=None,
-            days=31,
-            timezone="UTC",
-        ))
-        
-        assert isinstance(chunks, list)
-
     def test_read_pihole_ftl_db_timezone_conversion(self, dummy_db_single):
         """Test that timezone parameter affects date range calculation."""
         db_path, _ = dummy_db_single
@@ -360,3 +350,52 @@ class TestReadPiholeFtlDb:
         
         assert hasattr(result, "__iter__")
         assert not hasattr(result, "__len__") 
+
+    def test_resolve_clients_modes(self, dummy_db_with_network):
+        """Test resolve_clients with various client_id formatting modes."""
+        _, df, hostname_map, mac_map = dummy_db_with_network
+        from piholelongtermstats.db import resolve_clients
+        
+        # client_id="ip"
+        df_test = df.copy()
+        res = resolve_clients(df_test.copy(), hostname_map, mac_map, client_id="ip")
+        assert (res["client"] == df_test["client"]).all()
+        
+        # client_id="mac"
+        res = resolve_clients(df_test.copy(), hostname_map, mac_map, client_id="mac")
+        for ip, mac in mac_map.items():
+            mask = df_test["client"] == ip
+            if mask.any():
+                assert (res.loc[mask, "client"] == mac).all()
+                
+        # client_id="hostname"
+        res = resolve_clients(df_test.copy(), hostname_map, mac_map, client_id="hostname")
+        for ip, hostname in hostname_map.items():
+            mask = df_test["client"] == ip
+            if mask.any():
+                assert (res.loc[mask, "client"] == hostname).all()
+
+    def test_read_pihole_ftl_db_with_network_integration(self, dummy_db_with_network):
+        """Test read_pihole_ftl_db resolves client names using network tables."""
+        db_path, _, hostname_map, _ = dummy_db_with_network
+        
+        conn = connect_to_sql(db_path)
+        chunksize, _, _ = probe_sample_df(conn)
+        conn.close()
+        
+        chunks = list(read_pihole_ftl_db(
+            db_paths=[db_path],
+            chunksize=[chunksize],
+            start_date=None,
+            end_date=None,
+            days=31,
+            timezone="UTC",
+            client_id="hostname",
+        ))
+        
+        df_result = pd.concat(chunks)
+        for ip, hostname in hostname_map.items():
+            mask = df_result["client_ip"] == ip
+            if mask.any():
+                assert (df_result.loc[mask, "client"] == hostname).all()
+

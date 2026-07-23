@@ -1,5 +1,5 @@
 ## Author :  Davis T. Daniel
-## PiHoleLongTermStats v.0.2.6
+## PiHoleLongTermStats v.0.2.7
 ## License :  MIT
 
 import sqlite3
@@ -9,7 +9,6 @@ import psutil
 import pandas as pd
 import logging
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
-import gc
 
 
 ####### reading the database #######
@@ -60,9 +59,6 @@ def probe_sample_df(conn):
     ].iloc[0]
     oldest_ts = pd.to_datetime(oldest_ts_raw, unit="s", utc=True)
 
-    del sample_df
-    gc.collect()
-
     return chunksize, latest_ts, oldest_ts
 
 
@@ -107,6 +103,75 @@ def get_timestamp_range(days, start_date, end_date, timezone):
 
     return start_timestamp, end_timestamp
 
+def get_hostname_map_via_mac(conn):
+    """Build ip to hostname and ip to mac dict from PiHole's network tables."""
+    
+    # join the network and network_adressed table
+    query = """
+    SELECT n.hwaddr, n.macVendor, na.ip, na.name AS hostname, na.lastSeen
+    FROM network_addresses na
+    JOIN network n ON n.id = na.network_id
+    """
+    try:
+        df = pd.read_sql_query(query, conn)
+    except (sqlite3.OperationalError, pd.errors.DatabaseError) as e:
+        logging.warning(
+            "Pi-hole network tables not found. Hostname/MAC resolution is unavailable; "
+            "clients will fall back to IP address-based resolution where necessary."
+        )
+        logging.debug(e)
+        return {}, {}
+
+    # remove entries with no hostname
+    has_hostname = df[df["hostname"].notna() & (df["hostname"] != "")]
+    
+    # latest first
+    canonical_names = (
+        has_hostname.sort_values("lastSeen", ascending=False)
+        .drop_duplicates(subset="hwaddr")[["hwaddr", "hostname"]]
+    )
+
+    # latest ip first, remove rows with missing hostnames
+    latest_ip = (
+        df.sort_values("lastSeen", ascending=False)
+        .drop_duplicates(subset=["hwaddr", "ip"])
+        .drop(columns=["hostname"])
+    )
+    # mac,ip, hostname combined
+    merged = latest_ip.merge(canonical_names, on="hwaddr", how="left")
+
+    ip_to_hostname = merged.set_index("ip")["hostname"].to_dict()
+    ip_to_mac = merged.set_index("ip")["hwaddr"].to_dict()
+
+    return ip_to_hostname, ip_to_mac
+
+def resolve_clients(df, hostname_map, mac_map, client_id="hostname"):
+    """
+    Resolve clients based on client-id parameters, default is hostname.
+    """
+
+    df["client_ip"] = df["client"]
+    df["client_mac"] = df["client_ip"].map(mac_map).astype(object)
+    hostname = df["client_ip"].map(hostname_map).astype(object)
+
+    if client_id == "ip":
+        resolved = df["client_ip"]
+    elif client_id == "mac":
+        resolved = df["client_mac"].fillna(df["client_ip"])
+    elif client_id == "hostname":
+        resolved = hostname.fillna(df["client_ip"])
+    elif client_id == "hostname_mac":
+        resolved = hostname.fillna(df["client_ip"]) + " (" + df["client_mac"].fillna("unknown-mac") + ")"
+    elif client_id == "hostname_ip":
+        resolved = hostname.where(hostname.isna(), hostname + " (" + df["client_ip"] + ")")
+        resolved = resolved.fillna(df["client_ip"])
+    elif client_id == "mac_ip":
+        resolved = df["client_mac"].fillna("unknown-mac") + " (" + df["client_ip"] + ")"
+    else:
+        raise ValueError(f"Unknown mode: {client_id}")
+
+    df["client"] = resolved
+    return df
 
 def read_pihole_ftl_db(
     db_paths,
@@ -115,6 +180,7 @@ def read_pihole_ftl_db(
     end_date=None,
     chunksize=None,
     timezone="UTC",
+    client_id="hostname",
 ):
     """Read the PiHole FTL database"""
 
@@ -126,7 +192,6 @@ def read_pihole_ftl_db(
         f"Reading data from PiHole-FTL database(s) for timestamps ranging from {start_timestamp} to {end_timestamp} (TZ: UTC)..."
     )
 
-    # no sql injection
     query = """
     SELECT id, timestamp, type, status, domain, client, reply_time	 
     FROM queries
@@ -139,11 +204,12 @@ def read_pihole_ftl_db(
             f"Processing database {db_idx + 1}/{len(db_paths)} at {db_path}..."
         )
         conn = connect_to_sql(db_path)
-
+        ip_to_hostname, ip_to_mac = get_hostname_map_via_mac(conn)
         try:
             chunk_num = 0
             for chunk in pd.read_sql_query(query, conn, params=params, chunksize=chunksize[db_idx]):
                 chunk_num += 1
+                chunk = resolve_clients(chunk, ip_to_hostname, ip_to_mac, client_id=client_id)
                 logging.info(
                     f"Processing dataframe chunk {chunk_num} from database {db_idx + 1} at {db_path}..."
                 )

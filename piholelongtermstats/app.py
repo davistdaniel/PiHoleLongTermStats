@@ -1,5 +1,5 @@
 ## Author :  Davis T. Daniel
-## PiHoleLongTermStats v.0.2.6
+## PiHoleLongTermStats v.0.2.7
 ## License :  MIT
 
 
@@ -29,7 +29,7 @@ from piholelongtermstats.plot import (
     generate_top_allowed_domains,
 )
 
-__version__ = "0.2.6"
+__version__ = "0.2.7"
 
 # logging setup
 logging.basicConfig(
@@ -91,6 +91,20 @@ parser.add_argument(
     help="Comma-separated list of domains or regex patterns to ignore. Default: no domains ignored. Env: PIHOLE_LT_STATS_IGNORE_DOMAINS",
 )
 
+parser.add_argument(
+    "--client_id",
+    choices=[
+        "hostname",
+        "mac",
+        "hostname_mac",
+        "ip",
+        "hostname_ip",
+        "mac_ip",
+    ],
+    default=os.getenv("PIHOLE_LT_STATS_CLIENT_ID", "hostname"),
+    help="Criterion for client resolution/identification, stats are calculated based on this grouping criterion. Falls back to IP if hostnames aren't available.",
+)
+
 args = parser.parse_args()
 
 logging.info("Setting environment variables:")
@@ -101,6 +115,7 @@ logging.info(f"PIHOLE_LT_STATS_NCLIENTS : {args.n_clients}")
 logging.info(f"PIHOLE_LT_STATS_NDOMAINS : {args.n_domains}")
 logging.info(f"PIHOLE_LT_STATS_TIMEZONE : {args.timezone}")
 logging.info(f"PIHOLE_LT_STATS_IGNORE_DOMAINS : {args.ignore_domains}")
+logging.info(f"PIHOLE_LT_STATS_CLIENT_ID : {args.client_id}")
 logging.info("Initializing PiHoleLongTermStats Dashboard")
 
 
@@ -115,6 +130,7 @@ def serve_layout(
     end_date=None,
     timezone="UTC",
     ignore_domains="",
+    client_id="hostname",
 ):
     """Read pihole ftl db, process data, compute stats"""
 
@@ -153,6 +169,7 @@ def serve_layout(
             start_date=start_date,
             end_date=end_date,
             timezone=timezone,
+            client_id=client_id
         ),
         ignore_index=True,
     )
@@ -647,8 +664,8 @@ def serve_layout(
                                 [
                                     html.H3("Longest Idle Period"),
                                     html.P(
-                                        f"{stats['max_idle_ms']:,.0f} s"
-                                        if stats["max_idle_ms"] is not None
+                                        f"{stats['max_idle_s']:,.0f} s"
+                                        if stats["max_idle_s"] is not None
                                         else "N/A"
                                     ),
                                     html.P(
@@ -709,7 +726,7 @@ def serve_layout(
                                         else "N/A"
                                     ),
                                     html.P(
-                                        "Average interval between successful queries.",
+                                        "Average interval between allowed queries.",
                                         style={"fontSize": "14px", "color": "#777"},
                                     ),
                                 ],
@@ -872,9 +889,9 @@ def serve_layout(
                             legend=dict(
                                 orientation="h",
                                 yanchor="top",
-                                y=-0.4,
+                                y=0.9,
                                 xanchor="center",
-                                x=0.5,
+                                x=0.9,
                             ),
                             xaxis=dict(title=None, automargin=True),
                         ),
@@ -1046,7 +1063,7 @@ def serve_layout(
                     html.Div(
                         [
                             html.H2("Reply Time Distribution"),
-                            html.H5("Distribution of reply times in milliseconds."),
+                            html.H5("Distribution of daily average reply times in milliseconds."),
                             dcc.Graph(
                                 id="reply-time-histogram",
                                 figure=px.histogram(
@@ -1125,6 +1142,7 @@ PHLTS_CALLBACK_DATA, initial_layout = serve_layout(
     end_date=None,
     timezone=args.timezone,
     ignore_domains=args.ignore_domains,
+    client_id=args.client_id,
 )
 
 logging.info("Setting initial layout...")
@@ -1211,6 +1229,7 @@ def reload_page(n_clicks, start_date, end_date):
         end_date=end_date,
         timezone=args.timezone,
         ignore_domains=args.ignore_domains,
+        client_id=args.client_id,
     )
 
     # Persist the new layout so that a full browser refresh (which calls
