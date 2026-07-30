@@ -96,14 +96,14 @@ See details about configurations options [here](https://github.com/davistdaniel/
         ports:
         - "9292:9292"  # Map host port to container port
         volumes:
-        - ./pihole-FTL.db:/app/pihole-FTL.db:ro  # Path to your Pi-hole DB file (adjust if it's not in current directory)
-        # To include additional Pi-hole databases, mount each one similarly, then also specify in environment :
-        #- ./pihole-FTL-2.db:/app/pihole-FTL-2.db:ro
+        - ./:/db_dir  # Mount the directory containing your DB files, for instance if the pihole-FTL.db is in the same folder as the docker-compose file.
+        # To include additional Pi-hole databases from other folders, mount them similarly:
+        #- /path/to/other/folder:/db_dir_2
         environment:
 
         # Configuration guide can be found on the github repository.
 
-        - PIHOLE_LT_STATS_DB_PATH=/app/pihole-FTL.db  # Path inside the container to the mounted DB file
+        - PIHOLE_LT_STATS_DB_PATH=/db_dir/pihole-FTL.db  # Path inside the container to the mounted DB file
         - PIHOLE_LT_STATS_DAYS=31                     # Number of days from now of data to analyze; change if desired
         - PIHOLE_LT_STATS_PORT=9292                   # Port the app listens to inside container; keep in sync with ports mapping
         - PIHOLE_LT_STATS_NCLIENTS=10                 # Number of clients to show in top clients plots
@@ -113,8 +113,8 @@ See details about configurations options [here](https://github.com/davistdaniel/
         #- PIHOLE_LT_STATS_IGNORE_DOMAINS=.*\.local   # regex patterns for excluding domains. Example: to exclude all .local domains use .*\.local 
 
         # Provide multiple databases by listing their container paths as a
-        # comma-separated string, e.g.:
-        #- PIHOLE_LT_STATS_DB_PATH=/app/pihole-FTL.db,/app/pihole-FTL-2.db
+        # comma-separated string (databases in the same directory do not need additional volume mounts), e.g.:
+        #- PIHOLE_LT_STATS_DB_PATH=/db_dir/pihole-FTL.db,/db_dir/pihole-FTL-2.db
 
         # To ignore multiple domain patterns, separate each regex with a comma.
         # example definition below ignores: anything ending in .local, anything starting with ads, exactly example.com

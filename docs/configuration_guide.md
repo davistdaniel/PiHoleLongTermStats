@@ -32,12 +32,22 @@ piholelongtermstats --db_path "pihole-FTL.db,pihole-FTL-2.db"
 ```yaml
 # Docker environment
     volumes:
-      - ./pihole-FTL.db:/app/pihole-FTL.db:ro
-      - ./pihole-FTL-2.db:/app/pihole-FTL-2.db:ro
+      - ./:/db_dir
+      # If your second database is in a different host folder, mount it to a separate container path:
+      #- /path/to/second/folder:/db_dir_2
     environment:
-      PIHOLE_LT_STATS_DB_PATH=/app/pihole-FTL.db,/app/pihole-FTL-2.db
-
+      # If all databases are in the same folder, you only need the single volume mount above:
+      PIHOLE_LT_STATS_DB_PATH=/db_dir/pihole-FTL.db,/db_dir/pihole-FTL-2.db
+      
+      # If they are in separate folders:
+      # PIHOLE_LT_STATS_DB_PATH=/db_dir/pihole-FTL.db,/db_dir_2/pihole-FTL-2.db
 ```
+
+> [!NOTE]
+> **Docker Volume Mounts and Database Updates:**
+> To ensure the **Reload** button works reliably when you replace your database file in a Docker setup, it is recommended to mount the host directory containing the database (e.g. `.:/db_dir`) rather than the database file directly (e.g. `./pihole-FTL.db:/app/pihole-FTL.db:ro`). 
+> 
+
 
 ### Days (`--days` / `PIHOLE_LT_STATS_DAYS`)
 
