@@ -29,7 +29,7 @@ classifiers = [
 
 [project.optional-dependencies]
 develop = [
-  "pytest==9.0.1",
+  "pytest==9.0.3",
   "ruff",
   "build==1.3.0",
   "pytest-cov==7.0.0",
